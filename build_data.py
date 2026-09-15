@@ -8,7 +8,9 @@ Stat definitions
 - Dropback EPA: plays with qb_dropback = 1 (passes, sacks, scrambles). Rush EPA: designed runs only.
 - Explosive rate: passes of 15+ yards or runs of 10+ yards, as a share of plays.
 - Pace: seconds per offensive snap = drive possession time / drive plays.
-- Pass rate over expectation (proe): mean of nflverse pass_oe over offensive plays in the sample.
+- Pass rate over expectation (proe): mean of nflverse pass_oe on EARLY DOWNS (1st and 2nd) in NEUTRAL
+  situations only - win probability 20-80%, excluding the last two minutes of each half. Independent of the
+  garbage-time toggle, since it measures play-calling intent rather than efficiency.
 - Trenches (from play-by-play): sack rate and QB-hit rate per dropback, stuff rate (designed runs for <=0 yds),
   yards per carry and rush success rate, each for the offense and allowed by the defense.
 - Market: a spread move of more than 0.5 pts toward a team (line getting more negative from its own side)
@@ -61,11 +63,14 @@ def stats(off,de,no_to=True):
     return dict(plays=len(off),sr=m(off.success),opp_sr=m(de.success),epa=m(o.epa),opp_epa=m(dd.epa),
         db_epa=m(ob.epa),rush_epa=m(orr.epa),opp_db_epa=m(db.epa),opp_rush_epa=m(dr.epa),
         expl=m(off.explosive),opp_expl=m(de.explosive),
-        proe=m(off.pass_oe) if 'pass_oe' in off else None,
         sack_rate=m(odb.sack),opp_sack_rate=m(ddb.sack),hit_rate=m(odb.qb_hit),opp_hit_rate=m(ddb.qb_hit),
         stuff_rate=m((orun.yards_gained<=0).astype(float)),opp_stuff_rate=m((drun.yards_gained<=0).astype(float)),
         ypc=m(orun.yards_gained),opp_ypc=m(drun.yards_gained),rush_sr=m(orun.success),opp_rush_sr=m(drun.success),
         dropbacks=int(len(odb)),opp_dropbacks=int(len(ddb)),carries=int(len(orun)),opp_carries=int(len(drun)))
+def neutral_proe(gp,team):
+    t=gp[(gp.posteam==team)&(gp.down.isin([1,2]))&(gp.wp>=0.20)&(gp.wp<=0.80)&(gp.half_seconds_remaining>120)]
+    t=t[t.pass_oe.notna()]
+    return float(t.pass_oe.mean()) if len(t) else None
 def neutral_pace(gp,team):
     t=gp[(gp.posteam==team)].sort_values('play_id')
     secs=[]
@@ -89,6 +94,7 @@ for gid,gp in base.groupby('game_id'):
         secs=sum(int(t.split(':')[0])*60+int(t.split(':')[1]) for t in dr.drive_time_of_possession)
         rec['pace']=secs/dr.drive_play_count.sum() if dr.drive_play_count.sum() else None
         rec['npace']=neutral_pace(gp,team)
+        rec['proe']=neutral_proe(gp,team)
         rec['pfr']=pfr_stats(gid,team,away if team==home else home)
         rows.append(rec)
 r=pd.DataFrame(rows).merge(g[['game_id','week','home_team','away_team','home_score','away_score','spread_line','total_line','gameday']],on='game_id')
@@ -100,7 +106,7 @@ for x in r.itertuples():
     else: ol,cl,ot,ct=None,(-x.spread_line if home else x.spread_line),None,x.total_line
     pf,pa=(x.home_score,x.away_score) if home else (x.away_score,x.home_score)
     games.append(dict(team=x.team,week=int(x.week),opp=opp,home=bool(home),pf=int(pf),pa=int(pa),date=x.gameday,
-        f=x.f,r=x.r,f_to=x.f_to,r_to=x.r_to,pfr=x.pfr,pace=x.pace,npace=x.npace,open_line=ol,close_line=cl,open_total=ot,close_total=ct))
+        f=x.f,r=x.r,f_to=x.f_to,r_to=x.r_to,pfr=x.pfr,pace=x.pace,npace=x.npace,proe=x.proe,open_line=ol,close_line=cl,open_total=ot,close_total=ct))
 # ---- document sections ----
 try:
     import markdown; md=lambda t: markdown.markdown(t,extensions=['tables'])
