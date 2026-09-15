@@ -207,7 +207,7 @@ function season(ab){
   const o={ab,gs,n:gs.length,rec:rec(ab),
     sr:s('sr'),opp_sr:s('opp_sr'),epa:s('epa'),opp_epa:s('opp_epa'),db_epa:s('db_epa'),opp_db_epa:s('opp_db_epa'),
     rush_epa:s('rush_epa'),opp_rush_epa:s('opp_rush_epa'),expl:s('expl'),opp_expl:s('opp_expl'),
-    npace:mean(gs.map(g=>g.npace)),pace:mean(gs.map(g=>g.pace)),proe:s('proe'),
+    npace:mean(gs.map(g=>g.npace)),pace:mean(gs.map(g=>g.pace)),proe:mean(gs.map(g=>g.proe)),
     plays:mean(gs.map(g=>st(g).plays)),ppg:mean(gs.map(g=>g.pf)),papg:mean(gs.map(g=>g.pa)),
     sack_rate:s('sack_rate'),opp_sack_rate:s('opp_sack_rate'),hit_rate:s('hit_rate'),opp_hit_rate:s('opp_hit_rate'),
     stuff_rate:s('stuff_rate'),opp_stuff_rate:s('opp_stuff_rate'),ypc:s('ypc'),opp_ypc:s('opp_ypc'),
@@ -249,7 +249,7 @@ const SEC={
     cols:[['SR','sr',F.pct],['Opp SR','opp_sr',F.pct],['EPA/play','epa','bar'],['Opp EPA','opp_epa','bar'],
           ['Dropback EPA','db_epa',F.epa],['Opp dropback','opp_db_epa',F.epa],['Rush EPA','rush_epa',F.epa],
           ['Explosive','expl',F.pct],['Opp explosive','opp_expl',F.pct]]},
-  totals:{title:'Totals',note:'Pace and pass tendency — what drives the number of plays and points.',
+  totals:{title:'Totals',note:'Pace and pass tendency — what drives the number of plays and points. PROE is early downs in neutral situations only, so the garbage-time toggle does not affect it.',
     cols:[['Neutral pace','npace',F.sec],['Pace','pace',F.sec],['PROE','proe',F.pctpt],['Plays','plays',F.int0],
           ['Points','pf',F.int0],['Opp points','pa',F.int0]]},
   trenches:{title:'Trenches',note:'Pass protection, pass rush and the run game at the line. Pressure and blitz counts come from PFR and appear a few days after each game.',
@@ -262,7 +262,7 @@ const SEC={
 function cellVal(g,key){
   const s=st(g);
   if(key==='pf')return g.pf; if(key==='pa')return g.pa;
-  if(key==='npace')return g.npace; if(key==='pace')return g.pace;
+  if(key==='npace')return g.npace; if(key==='pace')return g.pace; if(key==='proe')return g.proe;
   if(['press_allowed','press_gen','blitz_faced','blitz_sent','ybc','opp_ybc'].includes(key)){
     const m={press_allowed:'pressures_allowed',press_gen:'pressures_generated',blitz_faced:'blitzes_faced',blitz_sent:'blitzes_sent',ybc:'ybc',opp_ybc:'opp_ybc'};
     return g.pfr?g.pfr[m[key]]:null; }
@@ -391,7 +391,7 @@ function matchupView(){
     ${cross('Offense v opp defense (all plays)','epa','opp_epa')}`)}
   ${sec('Totals','',`
     ${row('Neutral pace','npace',F.sec,false,false,'(s/snap, lower = faster)')}
-    ${row('PROE','proe',F.pctpt,true,false,'(pass rate over expected)')}
+    ${row('PROE','proe',F.pctpt,true,false,'(early downs, neutral only)')}
     ${row('Plays per game','plays',F.int0,true)}
     ${row('Points for','ppg',F.one,true)}${row('Points against','papg',F.one,false)}`)}
   ${sec('Trenches','Pressure and blitz counts come from PFR and appear a few days after each game.',`
