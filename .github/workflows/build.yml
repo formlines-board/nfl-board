@@ -1,0 +1,29 @@
+name: Weekly board build
+on:
+  schedule:
+    - cron: "0 5 * * 2"
+  workflow_dispatch:
+  push:
+    paths:
+      - betql_lines.json
+      - nfl_2026_almanac_summary.md
+      - build_data.py
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pandas pyarrow markdown
+      - run: python build_data.py
+      - name: Commit data.js if changed
+        run: |
+          git config user.name "board-bot"
+          git config user.email "board-bot@users.noreply.github.com"
+          git add data.js
+          git diff --cached --quiet || git commit -m "Weekly data build $(date -u +%Y-%m-%d)"
+          git push
