@@ -8,6 +8,14 @@ Stat definitions
 - Dropback EPA: plays with qb_dropback = 1 (passes, sacks, scrambles). Rush EPA: designed runs only.
 - Explosive rate: passes of 15+ yards or runs of 10+ yards, as a share of plays.
 - Pace: seconds per offensive snap = drive possession time / drive plays.
+- Pass rate over expectation (proe): mean of nflverse pass_oe over offensive plays in the sample.
+- Trenches (from play-by-play): sack rate and QB-hit rate per dropback, stuff rate (designed runs for <=0 yds),
+  yards per carry and rush success rate, each for the offense and allowed by the defense.
+- Market: a spread move of more than 0.5 pts toward a team (line getting more negative from its own side)
+  counts as the market backing it; 0.5 or less either way is a push. Totals the same, over/under by direction.
+  ATS and O/U results are settled against the closing number.
+- Trenches (from PFR advanced stats, unfiltered, populated a few days after games): pressures allowed/generated,
+  blitzes faced/sent, yards before contact per carry, broken tackles, missed tackles.
 - Neutral pace: seconds elapsed between consecutive offensive snaps in the same drive, counted only when the
   earlier snap had win probability 35-65%. Gaps over 60s (timeouts, breaks) are dropped.
 Raw (unfiltered) versions are also produced so the app can toggle.
@@ -19,6 +27,26 @@ for url,fn in [(PBP,'pbp2026.parquet'),(SCH,'games.csv')]:
     try: urllib.request.urlretrieve(url,fn)
     except Exception as e: print("download failed",fn,e)
 d=pd.read_parquet('pbp2026.parquet'); g=pd.read_csv('games.csv'); g=g[g.season==2026]
+PFR="https://github.com/nflverse/nflverse-data/releases/download/pfr_advstats/advstats_week_%s_2026.parquet"
+pfr={}
+for k in ('pass','rush','def'):
+    try: urllib.request.urlretrieve(PFR%k,f'adv_{k}.parquet'); pfr[k]=pd.read_parquet(f'adv_{k}.parquet')
+    except Exception as e: print("PFR",k,"unavailable",e); pfr[k]=pd.DataFrame()
+def pfr_stats(gid,team,opp):
+    out={}
+    P,R,Df=pfr['pass'],pfr['rush'],pfr['def']
+    if len(P):
+        me=P[(P.game_id==gid)&(P.team==team)]; them=P[(P.game_id==gid)&(P.team==opp)]
+        if len(me): out['pressures_allowed']=float(me.times_pressured.sum()); out['blitzes_faced']=float(me.times_blitzed.sum())
+        if len(them): out['pressures_generated']=float(them.times_pressured.sum()); out['blitzes_sent']=float(them.times_blitzed.sum())
+    if len(R):
+        me=R[(R.game_id==gid)&(R.team==team)]; them=R[(R.game_id==gid)&(R.team==opp)]
+        if len(me) and me.carries.sum(): out['ybc']=float(me.rushing_yards_before_contact.sum()/me.carries.sum()); out['broken_tackles']=float(me.rushing_broken_tackles.fillna(0).sum()+me.receiving_broken_tackles.fillna(0).sum())
+        if len(them) and them.carries.sum(): out['opp_ybc']=float(them.rushing_yards_before_contact.sum()/them.carries.sum()); out['opp_broken_tackles']=float(them.rushing_broken_tackles.fillna(0).sum()+them.receiving_broken_tackles.fillna(0).sum())
+    if len(Df):
+        me=Df[(Df.game_id==gid)&(Df.team==team)]
+        if len(me): out['missed_tackles']=float(me.def_missed_tackles.fillna(0).sum())
+    return out
 bq=json.load(open('betql_lines.json')) if os.path.exists('betql_lines.json') else {}
 base=d[((d['pass']==1)|(d['rush']==1))&d.epa.notna()&d.success.notna()&(d.qb_kneel!=1)&(d.qb_spike!=1)].copy()
 base['to']=((base.interception==1)|(base.fumble_lost==1)).astype(int)
@@ -28,9 +56,16 @@ def stats(off,de,no_to=True):
     ob=o[o.qb_dropback==1]; orr=o[(o.rush==1)&(o.qb_dropback!=1)]
     db=dd[dd.qb_dropback==1]; dr=dd[(dd.rush==1)&(dd.qb_dropback!=1)]
     m=lambda s: float(s.mean()) if len(s) else None
+    odb=off[off.qb_dropback==1]; ddb=de[de.qb_dropback==1]
+    orun=off[(off.rush==1)&(off.qb_dropback!=1)]; drun=de[(de.rush==1)&(de.qb_dropback!=1)]
     return dict(plays=len(off),sr=m(off.success),opp_sr=m(de.success),epa=m(o.epa),opp_epa=m(dd.epa),
         db_epa=m(ob.epa),rush_epa=m(orr.epa),opp_db_epa=m(db.epa),opp_rush_epa=m(dr.epa),
-        expl=m(off.explosive),opp_expl=m(de.explosive))
+        expl=m(off.explosive),opp_expl=m(de.explosive),
+        proe=m(off.pass_oe) if 'pass_oe' in off else None,
+        sack_rate=m(odb.sack),opp_sack_rate=m(ddb.sack),hit_rate=m(odb.qb_hit),opp_hit_rate=m(ddb.qb_hit),
+        stuff_rate=m((orun.yards_gained<=0).astype(float)),opp_stuff_rate=m((drun.yards_gained<=0).astype(float)),
+        ypc=m(orun.yards_gained),opp_ypc=m(drun.yards_gained),rush_sr=m(orun.success),opp_rush_sr=m(drun.success),
+        dropbacks=int(len(odb)),opp_dropbacks=int(len(ddb)),carries=int(len(orun)),opp_carries=int(len(drun)))
 def neutral_pace(gp,team):
     t=gp[(gp.posteam==team)].sort_values('play_id')
     secs=[]
@@ -54,6 +89,7 @@ for gid,gp in base.groupby('game_id'):
         secs=sum(int(t.split(':')[0])*60+int(t.split(':')[1]) for t in dr.drive_time_of_possession)
         rec['pace']=secs/dr.drive_play_count.sum() if dr.drive_play_count.sum() else None
         rec['npace']=neutral_pace(gp,team)
+        rec['pfr']=pfr_stats(gid,team,away if team==home else home)
         rows.append(rec)
 r=pd.DataFrame(rows).merge(g[['game_id','week','home_team','away_team','home_score','away_score','spread_line','total_line','gameday']],on='game_id')
 games=[]
@@ -64,7 +100,7 @@ for x in r.itertuples():
     else: ol,cl,ot,ct=None,(-x.spread_line if home else x.spread_line),None,x.total_line
     pf,pa=(x.home_score,x.away_score) if home else (x.away_score,x.home_score)
     games.append(dict(team=x.team,week=int(x.week),opp=opp,home=bool(home),pf=int(pf),pa=int(pa),date=x.gameday,
-        f=x.f,r=x.r,f_to=x.f_to,r_to=x.r_to,pace=x.pace,npace=x.npace,open_line=ol,close_line=cl,open_total=ot,close_total=ct))
+        f=x.f,r=x.r,f_to=x.f_to,r_to=x.r_to,pfr=x.pfr,pace=x.pace,npace=x.npace,open_line=ol,close_line=cl,open_total=ot,close_total=ct))
 # ---- document sections ----
 try:
     import markdown; md=lambda t: markdown.markdown(t,extensions=['tables'])
@@ -93,6 +129,33 @@ for sec in parts:
     elif sec.strip():
         h=re.match(r'^#+ (.+)\n',sec)
         extras.append(dict(title=h.group(1).strip() if h else 'Notes',html=md(sec[h.end():] if h else sec)))
+# ---- market history per team (spread + total movement, ATS, O/U) ----
+PUSH=0.5
+for gm in games:
+    ol,cl,ot,ct=gm['open_line'],gm['close_line'],gm['open_total'],gm['close_total']
+    # spread: negative move = market backing this team
+    if ol is not None and cl is not None:
+        dd=cl-ol
+        gm['line_move']=round(dd,2)
+        gm['market']= 'push' if abs(dd)<=PUSH else ('for' if dd<0 else 'against')
+    else:
+        gm['line_move']=None; gm['market']=None
+    if ot is not None and ct is not None:
+        dd=ct-ot
+        gm['total_move']=round(dd,2)
+        gm['total_market']='push' if abs(dd)<=PUSH else ('over' if dd>0 else 'under')
+    else:
+        gm['total_move']=None; gm['total_market']=None
+    # results against the closing numbers
+    if cl is not None and gm['pf'] is not None:
+        mgn=gm['pf']-gm['pa']+cl
+        gm['ats']='win' if mgn>0 else ('loss' if mgn<0 else 'push')
+    else: gm['ats']=None
+    if ct is not None and gm['pf'] is not None:
+        t=gm['pf']+gm['pa']
+        gm['ou']='over' if t>ct else ('under' if t<ct else 'push')
+    else: gm['ou']=None
+
 weeks=sorted(set(x['week'] for x in games))
 out=dict(updated=datetime.date.today().isoformat(),weeks=weeks,teams=tdata,games=games,extras=extras,upcoming={})
 # upcoming lines for weeks not yet played (from betql json)
