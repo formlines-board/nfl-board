@@ -1,0 +1,17 @@
+Weekly NFL board update (run Tuesdays 06:00 UK)
+
+You are updating the NFL consensus board in this folder. Do the following in order and do not edit any other files.
+
+1. Get the opening and closing betting lines for the NFL week that has just finished.
+   - Open https://betql.co/nfl/line-movement in Chrome. Use the week selector (left/right arrows under "SPREAD") to select the week just completed. For each game record the away team's Open and Current spread.
+   - Change the dropdown from SPREAD to TOTAL and record each game's Open and Current total.
+   - Add these to betql_lines.json under the week number, in the form "AWAY@HOME": [away_open_spread, away_current_spread, total_open, total_current]. Use nflverse team codes (LA for the Rams, LV for the Raiders, LAC for the Chargers, JAX for the Jaguars).
+   - Also capture the coming week's lines and add them under that week number so they show as "upcoming" on the board.
+   - If BetQL cannot be loaded, skip this step and say so clearly in your summary; the build falls back to consensus closing lines and shows opens as blank.
+
+2. Run: python build_data.py
+   This downloads the latest nflverse play-by-play, recomputes every stat for every game (garbage-time filtered and raw, turnovers removed from EPA), merges the BetQL lines and the almanac/Diggs text, and rewrites data.js. The board (index.html) reads data.js when opened.
+
+3. Check the output line ("data.js written — weeks [...] — X games"). If any game from the completed week is missing (usually Monday night, because nflverse can lag), say so — do not fabricate it. If a game is missing, re-run the task the following morning.
+
+4. Write a short summary (10 lines max) of the biggest line moves of the completed week and any team whose EPA/play or opponent EPA/play was an outlier, in the style of the "Diggs vs FTN" notes in nfl_2026_almanac_summary.md. Save it as a dated entry at the top of weekly_notes.md (create the file if it doesn't exist).

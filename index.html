@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NFL 2026 — consensus board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Sans+Condensed:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EDF0F3; --sheet:#FFFFFF; --rule:#CFD6DD; --rule-soft:#E3E8ED;
+  --ink:#16202B; --ink-2:#4A5764; --ink-3:#7B8794;
+  --up:#1E6B45; --up-bg:#DDEFE4; --down:#96303B; --down-bg:#F5E0E2; --brass:#9C7A1F; --brass-bg:#F6EDD2;
+  --rail:280px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:14px;line-height:1.45;font-variant-numeric:tabular-nums}
+a{color:inherit}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible,a:focus-visible,select:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+
+.top{display:flex;align-items:baseline;gap:22px;padding:14px 22px;background:var(--sheet);border-bottom:1px solid var(--rule);position:sticky;top:0;z-index:5}
+.top h1{margin:0;font-family:"IBM Plex Sans Condensed",sans-serif;font-weight:600;font-size:20px;letter-spacing:.01em}
+.top nav{display:flex;gap:4px;margin-left:auto}
+.top nav button{padding:6px 12px;border-radius:4px;color:var(--ink-2)}
+.top nav button[aria-current="page"]{background:var(--ink);color:#fff}
+.top .meta{color:var(--ink-3);font-size:12.5px}
+.top .menu{display:none}
+
+.wrap{display:grid;grid-template-columns:var(--rail) 1fr;min-height:calc(100vh - 52px)}
+.rail{background:var(--sheet);border-right:1px solid var(--rule);padding:14px 0 30px;position:sticky;top:52px;height:calc(100vh - 52px);overflow:auto}
+.rail h3{margin:14px 22px 4px;font-size:11.5px;font-weight:500;color:var(--ink-3)}
+.rail button{display:flex;width:100%;padding:5px 22px;justify-content:space-between;align-items:baseline;text-align:left}
+.rail button:hover{background:var(--paper)}
+.rail button.on{background:var(--ink);color:#fff}
+.rail .rec{font-size:12px;color:var(--ink-3)}
+.rail button.on .rec{color:#C9D3DD}
+
+main{padding:22px 26px 60px;max-width:1240px}
+.head{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 18px;margin-bottom:6px}
+.head h2{margin:0;font-family:"IBM Plex Sans Condensed",sans-serif;font-weight:600;font-size:34px;line-height:1}
+.head .proj{color:var(--ink-2);font-size:13px}
+.coach{color:var(--ink-2);font-size:13.5px;margin:0 0 18px}
+.coach p{margin:0}
+
+.card{background:var(--sheet);border:1px solid var(--rule);border-radius:6px;padding:14px 16px 12px;margin-bottom:16px}
+.card h4{margin:0 0 8px;font-size:13px;font-weight:600}
+.ctl{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-bottom:8px;font-size:12.5px;color:var(--ink-2)}
+.ctl label{display:flex;gap:6px;align-items:center;cursor:pointer}
+.ctl .note{margin-left:auto;color:var(--ink-3)}
+
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{font-weight:500;color:var(--ink-3);text-align:right;padding:6px 8px;border-bottom:1px solid var(--rule);white-space:nowrap;font-size:12px}
+th:first-child,th.l,td.l{text-align:left}
+td{padding:6px 8px;border-bottom:1px solid var(--rule-soft);text-align:right;white-space:nowrap}
+tr:last-child td{border-bottom:0}
+th.sort{cursor:pointer;user-select:none}
+th.sort:hover{color:var(--ink)}
+th.sort.on{color:var(--ink);border-bottom-color:var(--ink)}
+.bar{display:inline-flex;align-items:center;gap:6px;justify-content:flex-end;min-width:96px}
+.bar i{display:block;height:9px;border-radius:2px}
+.bar.up i{background:var(--up)} .bar.dn i{background:var(--down)}
+.up{color:var(--up)} .dn{color:var(--down)}
+.mv{display:inline-block;padding:1px 6px;border-radius:3px;font-size:12px}
+.mv.brass{background:var(--brass-bg);color:var(--brass)}
+.mv.up{background:var(--up-bg)} .mv.dn{background:var(--down-bg)}
+.dim{color:var(--ink-3)}
+.win{color:var(--up);font-weight:500} .loss{color:var(--down);font-weight:500}
+.avg td{border-top:1px solid var(--rule);font-weight:500;background:#F7F9FB}
+
+.prose{max-width:76ch;font-size:14px}
+.prose p{margin:0 0 10px}
+.prose strong{font-weight:600}
+.prose table{font-size:12.5px;margin:6px 0 12px}
+.prose th{text-align:left}
+.prose td{text-align:left;white-space:normal}
+details{border-top:1px solid var(--rule-soft);padding:10px 0}
+details summary{cursor:pointer;font-weight:600;font-size:13.5px;list-style:none;display:flex;align-items:center;gap:8px}
+details summary::before{content:"";width:7px;height:7px;border-right:1.5px solid var(--ink-2);border-bottom:1.5px solid var(--ink-2);transform:rotate(-45deg);transition:transform .15s}
+details[open] summary::before{transform:rotate(45deg)}
+details .prose{margin-top:10px}
+.diggs{border-left:3px solid var(--brass);padding-left:12px}
+.empty{color:var(--ink-3);padding:20px 0}
+
+.games{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:12px}
+.game{background:var(--sheet);border:1px solid var(--rule);border-radius:6px;padding:12px 14px}
+.game .teams{display:flex;justify-content:space-between;font-family:"IBM Plex Sans Condensed",sans-serif;font-weight:600;font-size:18px}
+.game .lines{display:flex;gap:14px;font-size:12.5px;color:var(--ink-2);margin:4px 0 8px}
+.game table{font-size:12.5px}
+.game td,.game th{padding:3px 6px}
+.wksel{display:flex;gap:4px;margin-bottom:14px}
+.wksel button{padding:5px 11px;border:1px solid var(--rule);border-radius:4px;background:var(--sheet)}
+.wksel button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+button.game{text-align:left;width:100%;font:inherit;color:inherit}
+button.game:hover{border-color:var(--ink-2)}
+.game .score{font-size:16px;align-self:center;color:var(--ink-2)}
+.game .lines{flex-wrap:wrap}
+.lines.big{font-size:15px;margin:0 0 14px;display:flex;gap:22px;color:var(--ink-2)}
+.cmp td,.cmp th{text-align:left;vertical-align:middle;padding:7px 8px}
+.cmp th{font-size:14px;color:var(--ink);font-weight:600}
+.cmp th .tl{font:inherit;font-weight:600}
+.cmp th .dim{font-weight:400;font-size:12px}
+.cmp td.lab{text-align:center;color:var(--ink-2);font-size:12.5px;width:34%}
+.cmp td.r,.cmp th.r{text-align:right}
+.cmp td.r .bar{justify-content:flex-end}
+.cmp td .bar{justify-content:flex-start;min-width:0}
+.cmp td.best{background:var(--up-bg)}
+.cmp tr.sep td{padding:4px;border-bottom:1px solid var(--rule)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.log{font-size:12.5px;margin:6px 0 8px}
+.log td,.log th{padding:4px 6px}
+button.mu{font-size:12px;color:var(--brass);font-weight:500}
+tr.up td{color:var(--ink-2)}
+@media (max-width:900px){
+  .two{grid-template-columns:1fr}
+  .wrap{grid-template-columns:1fr}
+  .rail{position:fixed;left:0;top:52px;width:min(320px,90vw);transform:translateX(-100%);transition:transform .18s;z-index:6;box-shadow:0 0 0 100vw rgba(22,32,43,0)}
+  .rail.open{transform:none;box-shadow:0 0 0 100vw rgba(22,32,43,.35)}
+  .top .menu{display:inline-block;color:var(--ink-2)}
+  .top .meta{display:none}
+  main{padding:16px 14px 50px}
+  .head h2{font-size:28px}
+  .card{overflow-x:auto}
+  .games{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="top">
+  <button class="menu" id="menu" aria-label="Teams">☰ Teams</button>
+  <h1>NFL 2026 — consensus board</h1>
+  <span class="meta" id="meta"></span>
+  <nav>
+    <button data-view="team" aria-current="page">Teams</button>
+    <button data-view="league">League table</button>
+    <button data-view="week">This week</button>
+    <button data-view="notes">Almanac notes</button>
+  </nav>
+</header>
+<div class="wrap">
+  <aside class="rail" id="rail"></aside>
+  <main id="main"></main>
+</div>
+<script src="data.js"></script>
+<script>
+(function(){
+const D=window.NFL_DATA; if(!D){document.getElementById('main').innerHTML='<p class="empty">data.js not found. Run build_data.py in this folder, then reload.</p>';return;}
+const S={view:'team',team:'ARI',match:null,filtered:true,noTO:true,week:D.weeks[D.weeks.length-1]||1,sort:'epa',dir:-1,menu:false};
+const $=id=>document.getElementById(id);
+const F={
+  pct:v=>v==null?'—':(v*100).toFixed(1)+'%',
+  epa:v=>v==null?'—':(v>0?'+':'')+v.toFixed(3),
+  sec:v=>v==null?'—':v.toFixed(1),
+  line:v=>v==null?'—':v===0?'PK':(v>0?'+':'')+String(v),
+  tot:v=>v==null?'—':String(v)
+};
+const divs=["AFC East","AFC North","AFC South","AFC West","NFC East","NFC North","NFC South","NFC West"];
+const rec=t=>{const g=D.games.filter(x=>x.team===t);const w=g.filter(x=>x.pf>x.pa).length,l=g.filter(x=>x.pf<x.pa).length,tie=g.length-w-l;return g.length?`${w}-${l}${tie?'-'+tie:''}`:'';};
+const st=g=>S.filtered?(S.noTO?g.f:g.f_to):(S.noTO?g.r:g.r_to);
+
+function bar(v,scale,cls){ if(v==null)return '—'; const w=Math.min(48,Math.abs(v)/scale*48); return `<span class="bar ${v>=0?'up':'dn'} ${cls||''}"><i style="width:${w}px"></i>${F.epa(v)}</span>`;}
+function move(o,c,inv){ // inv: for a line, moving toward negative = market backing this team
+  if(o==null||c==null)return `<span class="dim">${F.line(c)}</span>`;
+  const d=c-o; if(Math.abs(d)<0.01) return F.line(c);
+  const cls=inv?(d<0?'up':'dn'):'brass';
+  return `<span class="mv ${cls}" title="opened ${F.line(o)}">${F.line(c)}</span>`;
+}
+function moveTot(o,c){ if(o==null||c==null)return `<span class="dim">${F.tot(c)}</span>`; const d=c-o; if(Math.abs(d)<0.01)return F.tot(c); return `<span class="mv brass" title="opened ${F.tot(o)}">${F.tot(c)}</span>`;}
+function mean(a){a=a.filter(v=>v!=null);return a.length?a.reduce((x,y)=>x+y,0)/a.length:null;}
+
+// ---------- rail ----------
+function rail(){
+  let h='';
+  for(const dv of divs){
+    h+=`<h3>${dv}</h3>`;
+    for(const [ab,t] of Object.entries(D.teams).filter(([a,t])=>t.division===dv).sort((a,b)=>a[1].name.localeCompare(b[1].name)))
+      h+=`<button data-team="${ab}" class="${S.view==='team'&&S.team===ab?'on':''}"><span>${t.name}</span><span class="rec">${rec(ab)}</span></button>`;
+  }
+  $('rail').innerHTML=h;
+  $('rail').classList.toggle('open',S.menu);
+}
+$('rail').addEventListener('click',e=>{const b=e.target.closest('button[data-team]');if(!b)return;S.team=b.dataset.team;S.view='team';S.menu=false;render();window.scrollTo(0,0);});
+$('menu').addEventListener('click',()=>{S.menu=!S.menu;$('rail').classList.toggle('open',S.menu);});
+document.querySelector('.top nav').addEventListener('click',e=>{const b=e.target.closest('button[data-view]');if(!b)return;S.view=b.dataset.view;render();});
+
+// ---------- shared ----------
+function controls(extra){
+  return `<div class="ctl">
+    <label><input type="checkbox" id="filt" ${S.filtered?'checked':''}> Exclude garbage time (win probability outside 10–90%)</label>
+    <label><input type="checkbox" id="noto" ${S.noTO?'checked':''}> Remove turnovers from EPA</label>
+    <span class="note">${extra||''}</span></div>`;
+}
+function season(ab){
+  const gs=D.games.filter(g=>g.team===ab); const s=k=>mean(gs.map(g=>st(g)[k]));
+  const lined=gs.filter(g=>g.close_line!=null);
+  const cov=lined.filter(g=>g.pf-g.pa+g.close_line>0).length, push=lined.filter(g=>g.pf-g.pa+g.close_line===0).length;
+  const overs=gs.filter(g=>g.close_total!=null&&g.pf+g.pa>g.close_total).length, tot=gs.filter(g=>g.close_total!=null).length;
+  return {ab,gs,n:gs.length,rec:rec(ab),ats:lined.length?`${cov}-${lined.length-cov-push}${push?'-'+push:''}`:'—',atsv:lined.length?cov/lined.length:null,
+    ou:tot?`${overs}-${tot-overs}`:'—',sr:s('sr'),opp_sr:s('opp_sr'),epa:s('epa'),opp_epa:s('opp_epa'),db_epa:s('db_epa'),opp_db_epa:s('opp_db_epa'),
+    expl:s('expl'),opp_expl:s('opp_expl'),npace:mean(gs.map(g=>g.npace)),ppg:mean(gs.map(g=>g.pf)),papg:mean(gs.map(g=>g.pa))};
+}
+function findUpcoming(ab){ const rows=[];
+  for(const [wk,gm] of Object.entries(D.upcoming||{})) for(const [k,v] of Object.entries(gm)){ const [a,h]=k.split('@'); if(a===ab||h===ab) rows.push({wk:+wk,a,h,v}); }
+  return rows.sort((x,y)=>x.wk-y.wk); }
+
+// ---------- team view ----------
+const COLS=['Wk','Opp','Result','SR','Opp SR','EPA/play','Opp EPA','Dropback EPA','Explosive','Opp explosive','Neutral pace','Open line','Close line','Open total','Close total'];
+function gameRow(g){
+  const s=st(g); const res=g.pf>g.pa?'W':g.pf<g.pa?'L':'T';
+  return `<tr><td class="l">${g.week}</td><td class="l">${g.home?'v':'@'} ${g.opp}</td>
+    <td class="l ${res==='W'?'win':res==='L'?'loss':''}">${res} ${g.pf}-${g.pa}</td>
+    <td>${F.pct(s.sr)}</td><td>${F.pct(s.opp_sr)}</td><td>${bar(s.epa,.4)}</td><td>${bar(s.opp_epa,.4)}</td><td>${F.epa(s.db_epa)}</td>
+    <td>${F.pct(s.expl)}</td><td>${F.pct(s.opp_expl)}</td><td>${F.sec(g.npace)}</td>
+    <td class="dim">${F.line(g.open_line)}</td><td>${move(g.open_line,g.close_line,true)}</td>
+    <td class="dim">${F.tot(g.open_total)}</td><td>${moveTot(g.open_total,g.close_total)}</td></tr>`;
+}
+function upcomingRows(ab){
+  return findUpcoming(ab).map(({wk,a,h,v})=>{ const home=h===ab, s=home?-1:1;
+    return `<tr class="up"><td class="l">${wk}</td><td class="l">${home?'v':'@'} ${home?a:h}</td><td class="l"><button class="mu" data-a="${a}" data-h="${h}" data-w="${wk}">Compare</button></td><td colspan="8"></td>
+      <td class="dim">${F.line(s*v[0])}</td><td>${move(s*v[0],s*v[1],true)}</td><td class="dim">${F.tot(v[2])}</td><td>${moveTot(v[2],v[3])}</td></tr>`;}).join('');
+}
+function avgRow(gs){
+  if(gs.length<2)return ''; const s=k=>mean(gs.map(g=>st(g)[k]));
+  return `<tr class="avg"><td class="l" colspan="3">Season (${gs.length})</td><td>${F.pct(s('sr'))}</td><td>${F.pct(s('opp_sr'))}</td><td>${bar(s('epa'),.4)}</td><td>${bar(s('opp_epa'),.4)}</td><td>${F.epa(s('db_epa'))}</td><td>${F.pct(s('expl'))}</td><td>${F.pct(s('opp_expl'))}</td><td>${F.sec(mean(gs.map(g=>g.npace)))}</td><td colspan="4"></td></tr>`;
+}
+function teamView(){
+  const t=D.teams[S.team]; const gs=D.games.filter(g=>g.team===S.team).sort((a,b)=>a.week-b.week);
+  return `<div class="head"><h2>${t.name}</h2><span class="proj">${t.header}</span></div>
+  <div class="coach">${t.coaching}</div>
+  <div class="card"><h4>Formlines</h4>${controls()}
+    <table><thead><tr>${COLS.map(c=>`<th${['Wk','Opp','Result'].includes(c)?' class="l"':''}>${c}</th>`).join('')}</tr></thead>
+    <tbody>${gs.length?gs.map(gameRow).join(''):'<tr><td colspan="15" class="l dim">No games played yet.</td></tr>'}${upcomingRows(S.team)}${avgRow(gs)}</tbody></table>
+    <p class="dim" style="margin:8px 0 0;font-size:12px">Lines from this team's side (negative = favourite). A coloured close means the line moved from open: green toward this team, red away. Neutral pace = seconds between snaps at 35–65% win probability. Click Compare on an upcoming game for the side-by-side view.</p>
+  </div>
+  ${t.diggs?`<div class="card diggs"><div class="prose">${t.diggs}</div></div>`:''}
+  <div class="card"><details open><summary>Almanac summary</summary><div class="prose">${t.summary}</div></details>
+    <details open><summary>Bottom line</summary><div class="prose">${t.bottom}</div></details></div>`;
+}
+
+// ---------- league table ----------
+const LCOLS=[['Team','name'],['Rec','rec'],['ATS','atsv'],['O/U','ou'],['SR','sr'],['Opp SR','opp_sr'],['EPA/play','epa'],['Opp EPA','opp_epa'],['Net EPA','net'],['Dropback','db_epa'],['Opp dropback','opp_db_epa'],['Expl','expl'],['Opp expl','opp_expl'],['Neutral pace','npace']];
+function leagueView(){
+  const rows=Object.keys(D.teams).map(ab=>{const s=season(ab);s.name=D.teams[ab].name;s.net=(s.epa!=null&&s.opp_epa!=null)?s.epa-s.opp_epa:null;return s;});
+  const k=S.sort; rows.sort((a,b)=>{const x=a[k],y=b[k];if(x==null)return 1;if(y==null)return -1;return typeof x==='string'?x.localeCompare(y)*S.dir:(x-y)*S.dir;});
+  return `<div class="head"><h2>League table</h2><span class="proj">Season averages, weeks ${D.weeks[0]}–${D.weeks[D.weeks.length-1]}. Click a heading to sort.</span></div>
+  <div class="card">${controls('Net EPA = offense minus opponent. ATS and O/U use closing numbers.')}
+  <table><thead><tr>${LCOLS.map(c=>`<th class="sort ${['name','rec','atsv','ou'].includes(c[1])?'l':''} ${S.sort===c[1]?'on':''}" data-k="${c[1]}">${c[0]}</th>`).join('')}</tr></thead><tbody>
+  ${rows.map(r=>`<tr><td class="l"><button data-team="${r.ab}" class="tl">${r.name}</button></td><td class="l">${r.rec}</td><td class="l">${r.ats}</td><td class="l">${r.ou}</td><td>${F.pct(r.sr)}</td><td>${F.pct(r.opp_sr)}</td><td>${bar(r.epa,.4)}</td><td>${bar(r.opp_epa,.4)}</td><td>${bar(r.net,.6)}</td><td>${F.epa(r.db_epa)}</td><td>${F.epa(r.opp_db_epa)}</td><td>${F.pct(r.expl)}</td><td>${F.pct(r.opp_expl)}</td><td>${F.sec(r.npace)}</td></tr>`).join('')}
+  </tbody></table></div>`;
+}
+
+// ---------- week view ----------
+function allWeeks(){ const wks=[...D.weeks]; for(const w of Object.keys(D.upcoming||{})) if(!wks.includes(+w)) wks.push(+w); return wks.sort((a,b)=>a-b); }
+function weekView(){
+  const wks=allWeeks(); if(!wks.includes(S.week))S.week=wks[wks.length-1];
+  const played=D.games.filter(g=>g.week===S.week&&!g.home).sort((a,b)=>a.date.localeCompare(b.date));
+  const up=D.upcoming&&D.upcoming[String(S.week)]||{}; const playedKeys=new Set(played.map(a=>`${a.team}@${a.opp}`));
+  let cards=played.map(a=>`<button class="game" data-a="${a.team}" data-h="${a.opp}" data-w="${a.week}">
+      <div class="teams"><span>${D.teams[a.team].name}</span><span class="score">${a.pf}–${a.pa}</span><span>${D.teams[a.opp].name}</span></div>
+      <div class="lines"><span>${a.team} ${F.line(a.open_line)} → ${move(a.open_line,a.close_line,true)}</span><span>Total ${F.tot(a.open_total)} → ${moveTot(a.open_total,a.close_total)}</span><span class="dim">${a.date}</span></div></button>`);
+  for(const [k,v] of Object.entries(up)){ if(playedKeys.has(k))continue; const [a,h]=k.split('@');
+    cards.push(`<button class="game" data-a="${a}" data-h="${h}" data-w="${S.week}">
+      <div class="teams"><span>${D.teams[a].name}</span><span class="score dim">at</span><span>${D.teams[h].name}</span></div>
+      <div class="lines"><span>${a} ${F.line(v[0])} → ${move(v[0],v[1],true)}</span><span>Total ${F.tot(v[2])} → ${moveTot(v[2],v[3])}</span><span class="dim">upcoming</span></div></button>`);}
+  return `<div class="head"><h2>Week ${S.week}</h2><span class="proj">Click a game to compare the two teams.</span></div>
+    <div class="wksel">${wks.map(w=>`<button data-w="${w}" class="${w===S.week?'on':''}">Week ${w}</button>`).join('')}</div>
+    <div class="games">${cards.join('')||'<p class="empty">No games in the data for this week yet.</p>'}</div>`;
+}
+
+// ---------- matchup view ----------
+function matchupView(){
+  const {a,h,w}=S.match; const A=season(a),H=season(h); const ta=D.teams[a],th=D.teams[h];
+  const played=D.games.find(g=>g.week===w&&g.team===a&&g.opp===h);
+  const up=(D.upcoming||{})[String(w)]?.[`${a}@${h}`];
+  const ol=played?played.open_line:up?up[0]:null, cl=played?played.close_line:up?up[1]:null, ot=played?played.open_total:up?up[2]:null, ct=played?played.close_total:up?up[3]:null;
+  const better=(x,y,hi)=>{ if(x==null||y==null||x===y)return ['','']; const xa=hi?x>y:x<y; return [xa?'best':'',xa?'':'best']; };
+  const row=(label,kx,fmt,hi,useBar,note)=>{ const x=A[kx],y=H[kx]; const [bx,by]=better(x,y,hi);
+    return `<tr><td class="${bx}">${useBar?bar(x,.4):fmt(x)}</td><td class="l lab">${label}${note?`<span class="dim"> ${note}</span>`:''}</td><td class="${by} r">${useBar?bar(y,.4):fmt(y)}</td></tr>`; };
+  const cross=(label,ok,dk)=>`<tr><td>${bar(A[ok],.4)} <span class="dim">v</span> ${bar(H[dk],.4)}</td><td class="l lab">${label}</td><td class="r">${bar(H[ok],.4)} <span class="dim">v</span> ${bar(A[dk],.4)}</td></tr>`;
+  const log=(T)=>`<table class="log"><thead><tr><th class="l">Wk</th><th class="l">Opp</th><th class="l">Result</th><th>EPA</th><th>Opp EPA</th><th>Dropback</th><th>Close</th><th>Total</th></tr></thead><tbody>
+    ${T.gs.sort((x,y)=>x.week-y.week).map(g=>{const s=st(g);const res=g.pf>g.pa?'W':g.pf<g.pa?'L':'T';return `<tr><td class="l">${g.week}</td><td class="l">${g.home?'v':'@'} ${g.opp}</td><td class="l ${res==='W'?'win':res==='L'?'loss':''}">${res} ${g.pf}-${g.pa}</td><td>${F.epa(s.epa)}</td><td>${F.epa(s.opp_epa)}</td><td>${F.epa(s.db_epa)}</td><td>${F.line(g.close_line)}</td><td>${F.tot(g.close_total)}</td></tr>`;}).join('')||'<tr><td colspan="8" class="l dim">No games yet.</td></tr>'}</tbody></table>`;
+  return `<div class="head"><h2>${ta.name} at ${th.name}</h2><span class="proj">Week ${w}${played?` · final ${played.pf}–${played.pa}`:' · upcoming'}</span></div>
+  <div class="lines big"><span>${a} ${F.line(ol)} → ${move(ol,cl,true)}</span><span>Total ${F.tot(ot)} → ${moveTot(ot,ct)}</span></div>
+  <div class="card">${controls('Season averages to date. Green cell = the better number.')}
+  <table class="cmp"><thead><tr><th><button class="tl" data-team="${a}">${ta.name}</button><div class="dim">${A.rec} · ATS ${A.ats} · O/U ${A.ou}</div></th><th></th><th class="r"><button class="tl" data-team="${h}">${th.name}</button><div class="dim">${H.rec} · ATS ${H.ats} · O/U ${H.ou}</div></th></tr></thead><tbody>
+    ${row('Points for / against','ppg',v=>v==null?'—':v.toFixed(1),true)}
+    ${row('Success rate','sr',F.pct,true)}${row('Opp success rate','opp_sr',F.pct,false)}
+    ${row('EPA per play','epa',F.epa,true,true)}${row('Opp EPA per play','opp_epa',F.epa,false,true)}
+    ${row('Dropback EPA','db_epa',F.epa,true,true)}${row('Opp dropback EPA','opp_db_epa',F.epa,false,true,'(pass defense)')}
+    ${row('Explosive rate','expl',F.pct,true)}${row('Opp explosive rate','opp_expl',F.pct,false)}
+    ${row('Neutral pace','npace',F.sec,false,false,'(s/snap, lower = faster)')}
+    <tr class="sep"><td colspan="3"></td></tr>
+    ${cross('Offense v opp pass defense','db_epa','opp_db_epa')}
+    ${cross('Offense v opp defense (all plays)','epa','opp_epa')}
+  </tbody></table>
+  <p class="dim" style="margin:8px 0 0;font-size:12px">Bottom two rows read left to right as this team's offense against the other team's defense: ${a} offense v ${h} defense on the left, ${h} offense v ${a} defense on the right.</p></div>
+  <div class="two"><div class="card"><h4>${ta.name}</h4><div class="proj" style="margin-bottom:6px">${ta.header}</div><div class="coach">${ta.coaching}</div>${log(A)}${ta.diggs?`<details><summary>Diggs vs FTN</summary><div class="prose diggs">${ta.diggs}</div></details>`:''}<details><summary>Bottom line (FTN)</summary><div class="prose">${ta.bottom}</div></details></div>
+  <div class="card"><h4>${th.name}</h4><div class="proj" style="margin-bottom:6px">${th.header}</div><div class="coach">${th.coaching}</div>${log(H)}${th.diggs?`<details><summary>Diggs vs FTN</summary><div class="prose diggs">${th.diggs}</div></details>`:''}<details><summary>Bottom line (FTN)</summary><div class="prose">${th.bottom}</div></details></div></div>`;
+}
+
+// ---------- notes ----------
+function notesView(){
+  return `<div class="head"><h2>Almanac notes</h2></div>`+D.extras.map(e=>`<div class="card"><details ${/Appendix C/.test(e.title)?'open':''}><summary>${e.title}</summary><div class="prose">${e.html}</div></details></div>`).join('');
+}
+
+function render(){
+  document.querySelectorAll('.top nav button').forEach(b=>b.toggleAttribute('aria-current',b.dataset.view===S.view)&&b.setAttribute('aria-current','page'));
+  document.querySelectorAll('.top nav button').forEach(b=>{if(b.dataset.view===S.view)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
+  rail();
+  $('main').innerHTML={team:teamView,league:leagueView,week:weekView,notes:notesView,match:matchupView}[S.view]();
+  $('main').querySelectorAll('[data-a][data-h]').forEach(b=>b.addEventListener('click',()=>{S.match={a:b.dataset.a,h:b.dataset.h,w:+b.dataset.w};S.view='match';render();window.scrollTo(0,0);}));
+  const f=$('filt'); if(f)f.addEventListener('change',()=>{S.filtered=f.checked;render();});
+  const n=$('noto'); if(n)n.addEventListener('change',()=>{S.noTO=n.checked;render();});
+  $('main').querySelectorAll('th.sort').forEach(th=>th.addEventListener('click',()=>{const k=th.dataset.k;if(S.sort===k)S.dir*=-1;else{S.sort=k;S.dir=['name','rec','ou','npace','opp_sr','opp_epa','opp_db_epa','opp_expl'].includes(k)?1:-1;}render();}));
+  $('main').querySelectorAll('button.tl').forEach(b=>b.addEventListener('click',()=>{S.team=b.dataset.team;S.view='team';render();window.scrollTo(0,0);}));
+  $('main').querySelectorAll('.wksel button').forEach(b=>b.addEventListener('click',()=>{S.week=+b.dataset.w;render();}));
+  $('meta').textContent=`Data through week ${D.weeks[D.weeks.length-1]||'—'} · updated ${D.updated}`;
+}
+render();
+})();
+</script>
+</body>
+</html>
