@@ -109,6 +109,7 @@ button.game:hover{border-color:var(--ink-2)}
 .cmp td.best{background:var(--up-bg)}
 .cmp tr.sep td{padding:4px;border-bottom:1px solid var(--rule)}
 .secnote{margin:0 0 10px;font-size:12px}
+.rk{display:inline-block;margin-left:5px;font-size:10.5px;color:var(--ink-3);vertical-align:super}
 .lab2{color:var(--ink-2);font-weight:500}
 .cmphead{display:flex;justify-content:space-between;font-family:"IBM Plex Sans Condensed",sans-serif;font-weight:600;font-size:17px;margin:0 2px 10px}
 .cmphead .r{text-align:right}
@@ -177,6 +178,22 @@ function move(o,c,inv){
   return `<span class="mv ${cls}" title="opened ${F.line(o)}">${F.line(c)}</span>`;
 }
 function moveTot(o,c){ if(o==null||c==null)return `<span class="dim">${F.tot(c)}</span>`; const d=c-o; if(Math.abs(d)<0.01)return F.tot(c); return `<span class="mv brass" title="opened ${F.tot(o)}">${F.tot(c)}</span>`;}
+let RANKS=null;
+const RANKDIR={sr:1,opp_sr:-1,epa:1,opp_epa:-1,net:1,db_epa:1,opp_db_epa:-1,rush_epa:1,opp_rush_epa:-1,
+  expl:1,opp_expl:-1,npace:-1,pace:-1,proe:1,plays:1,
+  sack_rate:-1,opp_sack_rate:1,hit_rate:-1,opp_hit_rate:1,stuff_rate:-1,opp_stuff_rate:1,
+  ypc:1,opp_ypc:-1,ybc:1,press_allowed:-1,press_gen:1};
+function rankMap(){
+  if(RANKS)return RANKS;
+  const all=Object.keys(D.teams).map(ab=>season(ab)); RANKS={};
+  for(const [k,dir] of Object.entries(RANKDIR)){
+    const v=all.filter(t=>t[k]!=null).sort((a,b)=>dir*(b[k]-a[k]));
+    const m={}; v.forEach((t,i)=>m[t.ab]=i+1); RANKS[k]=m;
+  }
+  return RANKS;
+}
+function rk(ab,key){ const m=rankMap()[key]; if(!m||!m[ab])return '';
+  return `<span class="rk">${m[ab]}</span>`; }
 function mean(a){a=a.filter(v=>v!=null);return a.length?a.reduce((x,y)=>x+y,0)/a.length:null;}
 
 function rail(){
@@ -245,14 +262,13 @@ function ttag(m){ if(!m)return '<span class="dim">—</span>';
 
 // ---------- team view ----------
 const SEC={
-  sides:{title:'Sides',note:'Efficiency on both sides of the ball. Opp columns are what the defense allowed.',
+  sides:{title:'Sides',note:'Efficiency on both sides of the ball. Opp columns are what the defense allowed. Small numbers are league rank out of 32.',
     cols:[['SR','sr',F.pct],['Opp SR','opp_sr',F.pct],['EPA/play','epa','bar'],['Opp EPA','opp_epa','bar'],
           ['Dropback EPA','db_epa',F.epa],['Opp dropback','opp_db_epa',F.epa],['Rush EPA','rush_epa',F.epa],
           ['Explosive','expl',F.pct],['Opp explosive','opp_expl',F.pct]]},
-  totals:{title:'Totals',note:'Pace and pass tendency — what drives the number of plays and points. PROE is early downs in neutral situations only, so the garbage-time toggle does not affect it.',
-    cols:[['Neutral pace','npace',F.sec],['Pace','pace',F.sec],['PROE','proe',F.pctpt],['Plays','plays',F.int0],
-          ['Points','pf',F.int0],['Opp points','pa',F.int0]]},
-  trenches:{title:'Trenches',note:'Pass protection, pass rush and the run game at the line. Pressure and blitz counts come from PFR and appear a few days after each game.',
+  totals:{title:'Totals',note:'Pace and pass tendency — what drives the number of plays and points. PROE is early downs in neutral situations only, so the garbage-time toggle does not affect it. Pace rank 1 = fastest; PROE rank 1 = most pass-heavy.',
+    cols:[['Neutral pace','npace',F.sec],['Pace','pace',F.sec],['PROE','proe',F.pctpt],['Plays','plays',F.int0]]},
+  trenches:{title:'Trenches',note:'Pass protection, pass rush and the run game at the line. Rank 1 is always the better end. Pressure and blitz counts come from PFR and appear a few days after each game.',
     cols:[['Sack rate','sack_rate',F.pct],['Opp sack rate','opp_sack_rate',F.pct],['QB hit rate','hit_rate',F.pct],
           ['Opp hit rate','opp_hit_rate',F.pct],['Pressures allowed','press_allowed',F.int0],['Pressures made','press_gen',F.int0],
           ['Stuff rate','stuff_rate',F.pct],['Opp stuff rate','opp_stuff_rate',F.pct],['YPC','ypc',F.one],
@@ -275,8 +291,8 @@ function sectionTable(gs,sec,ab){
     return `<tr><td class="l">${g.week}</td><td class="l">${g.home?'v':'@'} ${g.opp}</td><td class="l ${res==='W'?'win':res==='L'?'loss':''}">${res} ${g.pf}-${g.pa}</td>`+
       c.map(x=>{const v=cellVal(g,x[1]); return `<td>${x[2]==='bar'?bar(v,.4):x[2](v)}</td>`;}).join('')+`</tr>`;}).join('');
   const A=season(ab);
-  const avg=gs.length>1?`<tr class="avg"><td class="l" colspan="3">Season (${gs.length})</td>`+
-    c.map(x=>{const v=['pf','pa'].includes(x[1])?(x[1]==='pf'?A.ppg:A.papg):A[x[1]]; return `<td>${x[2]==='bar'?bar(v,.4):x[2](v)}</td>`;}).join('')+`</tr>`:'';
+  const avg=`<tr class="avg"><td class="l" colspan="3">Season${gs.length>1?` (${gs.length})`:''}</td>`+
+    c.map(x=>{const v=A[x[1]]; return `<td>${x[2]==='bar'?bar(v,.4):x[2](v)}${rk(ab,x[1])}</td>`;}).join('')+`</tr>`;
   return `<table><thead>${head}</thead><tbody>${body||`<tr><td colspan="${c.length+3}" class="l dim">No games played yet.</td></tr>`}${avg}</tbody></table>`;
 }
 function marketTable(gs,ab){
@@ -318,7 +334,7 @@ function teamView(){
 // ---------- league table ----------
 const LSEC={
   sides:[['Team','name'],['Rec','rec'],['SR','sr'],['Opp SR','opp_sr'],['EPA/play','epa'],['Opp EPA','opp_epa'],['Net EPA','net'],['Dropback','db_epa'],['Opp dropback','opp_db_epa'],['Rush EPA','rush_epa'],['Expl','expl'],['Opp expl','opp_expl']],
-  totals:[['Team','name'],['Rec','rec'],['Neutral pace','npace'],['Pace','pace'],['PROE','proe'],['Plays','plays'],['Points','ppg'],['Opp points','papg'],['O/U','ou']],
+  totals:[['Team','name'],['Rec','rec'],['Neutral pace','npace'],['Pace','pace'],['PROE','proe'],['Plays','plays'],['O/U','ou']],
   trenches:[['Team','name'],['Rec','rec'],['Sack rate','sack_rate'],['Opp sack rate','opp_sack_rate'],['Hit rate','hit_rate'],['Opp hit rate','opp_hit_rate'],['Press allowed','press_allowed'],['Press made','press_gen'],['Stuff rate','stuff_rate'],['Opp stuff','opp_stuff_rate'],['YPC','ypc'],['Opp YPC','opp_ypc'],['YBC','ybc']],
   market:[['Team','name'],['Rec','rec'],['Backed','mkt_for'],['Opposed','mkt_against'],['Flat','mkt_push'],['ATS','atsv'],['Over bet','tot_over'],['Under bet','tot_under'],['O/U','ou']]
 };
@@ -367,7 +383,7 @@ function matchupView(){
   const ol=played?played.open_line:up?up[0]:null, cl=played?played.close_line:up?up[1]:null, ot=played?played.open_total:up?up[2]:null, ct=played?played.close_total:up?up[3]:null;
   const better=(x,y,hi)=>{ if(x==null||y==null||x===y)return ['','']; const xa=hi?x>y:x<y; return [xa?'best':'',xa?'':'best']; };
   const row=(label,kx,fmt,hi,useBar,note)=>{ const x=A[kx],y=H[kx]; const [bx,by]=better(x,y,hi);
-    return `<tr><td class="${bx}">${useBar?bar(x,.4):fmt(x)}</td><td class="l lab">${label}${note?`<span class="dim"> ${note}</span>`:''}</td><td class="${by} r">${useBar?bar(y,.4):fmt(y)}</td></tr>`; };
+    return `<tr><td class="${bx}">${useBar?bar(x,.4):fmt(x)}${rk(a,kx)}</td><td class="l lab">${label}${note?`<span class="dim"> ${note}</span>`:''}</td><td class="${by} r">${useBar?bar(y,.4):fmt(y)}${rk(h,kx)}</td></tr>`; };
   const plain=(label,lv,rv)=>`<tr><td>${lv}</td><td class="l lab">${label}</td><td class="r">${rv}</td></tr>`;
   const cross=(label,ok,dk)=>`<tr><td>${bar(A[ok],.4)} <span class="dim">v</span> ${bar(H[dk],.4)}</td><td class="l lab">${label}</td><td class="r">${bar(H[ok],.4)} <span class="dim">v</span> ${bar(A[dk],.4)}</td></tr>`;
   const sec=(title,note,body)=>`<div class="card"><h4>${title}</h4>${note?`<p class="dim secnote">${note}</p>`:''}<table class="cmp"><tbody>${body}</tbody></table></div>`;
@@ -379,7 +395,7 @@ function matchupView(){
     ${T.gs.slice().sort((x,y)=>x.week-y.week).map(g=>{const s=st(g);const res=g.pf>g.pa?'W':g.pf<g.pa?'L':'T';return `<tr><td class="l">${g.week}</td><td class="l">${g.home?'v':'@'} ${g.opp}</td><td class="l ${res==='W'?'win':res==='L'?'loss':''}">${res} ${g.pf}-${g.pa}</td><td>${F.epa(s.epa)}</td><td>${F.epa(s.opp_epa)}</td><td>${F.epa(s.db_epa)}</td><td>${F.line(g.close_line)}</td><td>${F.tot(g.close_total)}</td></tr>`;}).join('')||'<tr><td colspan="8" class="l dim">No games yet.</td></tr>'}</tbody></table>`;
   return `<div class="head"><h2>${ta.name} at ${th.name}</h2><span class="proj">Week ${w}${played?` · final ${played.pf}–${played.pa}`:' · upcoming'}</span></div>
   <div class="lines big"><span>${a} ${F.line(ol)} → ${move(ol,cl,true)}</span><span>Total ${F.tot(ot)} → ${moveTot(ot,ct)}</span></div>
-  ${controls('Season averages to date. Green cell = the better number.')}
+  ${controls('Season averages to date. Green cell = the better number; small figures are league rank out of 32.')}
   <div class="cmphead"><div>${ta.name}<div class="dim">${A.rec} · ATS ${A.ats} · O/U ${A.ou}</div></div><div class="r">${th.name}<div class="dim">${H.rec} · ATS ${H.ats} · O/U ${H.ou}</div></div></div>
   ${sec('Sides','',`
     ${row('Success rate','sr',F.pct,true)}${row('Opp success rate','opp_sr',F.pct,false)}
@@ -392,8 +408,7 @@ function matchupView(){
   ${sec('Totals','',`
     ${row('Neutral pace','npace',F.sec,false,false,'(s/snap, lower = faster)')}
     ${row('PROE','proe',F.pctpt,true,false,'(early downs, neutral only)')}
-    ${row('Plays per game','plays',F.int0,true)}
-    ${row('Points for','ppg',F.one,true)}${row('Points against','papg',F.one,false)}`)}
+    ${row('Plays per game','plays',F.int0,true)}`)}
   ${sec('Trenches','Pressure and blitz counts come from PFR and appear a few days after each game.',`
     ${row('Sack rate allowed','sack_rate',F.pct,false)}${row('Sack rate created','opp_sack_rate',F.pct,true)}
     ${row('QB hit rate allowed','hit_rate',F.pct,false)}${row('QB hits created','opp_hit_rate',F.pct,true)}
@@ -415,6 +430,7 @@ function notesView(){
 }
 
 function render(){
+  RANKS=null;
   document.querySelectorAll('.top nav button').forEach(b=>b.toggleAttribute('aria-current',b.dataset.view===S.view)&&b.setAttribute('aria-current','page'));
   document.querySelectorAll('.top nav button').forEach(b=>{if(b.dataset.view===S.view)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
   rail();
