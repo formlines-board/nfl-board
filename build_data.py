@@ -13,6 +13,9 @@ Stat definitions
   garbage-time toggle, since it measures play-calling intent rather than efficiency.
 - Trenches (from play-by-play): sack rate and QB-hit rate per dropback, stuff rate (designed runs for <=0 yds),
   yards per carry and rush success rate, each for the offense and allowed by the defense.
+- Weather: sched[] carries kickoff date/time (US Eastern, as nflverse publishes it) and stadium id for games
+  not yet played; the page looks the forecast up at runtime from Open-Meteo. Roof type is held in the page,
+  not here, because nflverse leaves it blank for retractable venues until game day.
 - Market: a spread move of more than 0.5 pts toward a team (line getting more negative from its own side)
   counts as the market backing it; 0.5 or less either way is a push. Totals the same, over/under by direction.
   ATS and O/U results are settled against the closing number.
@@ -164,6 +167,15 @@ for gm in games:
 
 weeks=sorted(set(x['week'] for x in games))
 out=dict(updated=datetime.date.today().isoformat(),weeks=weeks,teams=tdata,games=games,extras=extras,upcoming={})
+# schedule metadata for games not yet played (kickoff, venue) for the weather lookup
+out['sched']={}
+for x in g.itertuples():
+    if int(x.week) in weeks: continue
+    out['sched'][f"{int(x.week)}|{x.away_team}@{x.home_team}"]=dict(
+        date=str(x.gameday),time=(None if pd.isna(x.gametime) else str(x.gametime)),
+        sid=(None if pd.isna(x.stadium_id) else str(x.stadium_id)),
+        stadium=(None if pd.isna(x.stadium) else str(x.stadium)),
+        neutral=bool(str(x.location)!='Home'))
 # upcoming lines for weeks not yet played (from betql json)
 for wk,gm in bq.items():
     if int(wk) not in weeks: out['upcoming'][wk]=gm
