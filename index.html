@@ -109,6 +109,11 @@ button.game:hover{border-color:var(--ink-2)}
 .cmp td.best{background:var(--up-bg)}
 .cmp tr.sep td{padding:4px;border-bottom:1px solid var(--rule)}
 .secnote{margin:0 0 10px;font-size:12px}
+.wx{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start}
+.wxv{font-family:"IBM Plex Sans Condensed",sans-serif;font-weight:600;font-size:22px}
+.wx .dim{font-size:12px}
+.wxnote{margin-left:auto;text-align:right;max-width:44%}
+@media (max-width:700px){.wxnote{margin-left:0;text-align:left;max-width:100%}}
 .rk{display:inline-block;margin-left:5px;font-size:10.5px;color:var(--ink-3);vertical-align:super}
 .lab2{color:var(--ink-2);font-weight:500}
 .cmphead{display:flex;justify-content:space-between;font-family:"IBM Plex Sans Condensed",sans-serif;font-weight:600;font-size:17px;margin:0 2px 10px}
@@ -259,6 +264,69 @@ function mtag(m){ if(!m)return '<span class="dim">—</span>';
 function ttag(m){ if(!m)return '<span class="dim">—</span>';
   if(m==='over')return '<span class="mv brass">bet over</span>'; if(m==='under')return '<span class="mv brass">bet under</span>';
   return '<span class="mv">flat</span>'; }
+
+// ---------- venues & weather ----------
+// [lat, lon, roof] roof: open | dome (always closed) | retract (roof may be open or shut)
+const STAD={
+ SEA00:[47.5952,-122.3316,'open'], CAR00:[35.2258,-80.8528,'open'], CIN00:[39.0955,-84.5161,'open'],
+ DET00:[42.3400,-83.0456,'dome'], HOU00:[29.6847,-95.4107,'retract'], IND00:[39.7601,-86.1639,'retract'],
+ JAX00:[30.3239,-81.6373,'open'], PIT00:[40.4468,-80.0158,'open'], NAS00:[36.1665,-86.7713,'open'],
+ LAX01:[33.9535,-118.3392,'dome'], VEG00:[36.0909,-115.1833,'dome'], MIN01:[44.9736,-93.2575,'dome'],
+ PHI00:[39.9008,-75.1675,'open'], NYC01:[40.8135,-74.0745,'open'], KAN00:[39.0489,-94.4839,'open'],
+ BUF00:[42.7738,-78.7870,'open'], ATL97:[33.7554,-84.4009,'retract'], BAL00:[39.2780,-76.6227,'open'],
+ CHI98:[41.8623,-87.6167,'open'], BOS00:[42.0909,-71.2643,'open'], TAM00:[27.9759,-82.5033,'open'],
+ DEN00:[39.7439,-105.0201,'open'], PHO00:[33.5276,-112.2626,'retract'], DAL00:[32.7473,-97.0945,'retract'],
+ SFO01:[37.4033,-121.9694,'open'], GNB00:[44.5013,-88.0622,'open'], CLE00:[41.5061,-81.6995,'open'],
+ MIA00:[25.9580,-80.2389,'open'], WAS00:[38.9076,-76.8645,'open'], NOR00:[29.9511,-90.0812,'dome'],
+ MEL00:[-37.8200,144.9834,'open'], RIO00:[-22.9121,-43.2302,'open'], LON02:[51.6043,-0.0665,'open'],
+ LON00:[51.5560,-0.2795,'open'], PAR00:[48.9245,2.3601,'open'], MAD01:[40.4531,-3.6883,'retract'],
+ MUN01:[48.2188,11.6247,'retract'], MEX00:[19.3029,-99.1505,'open']
+};
+const WXCODE={0:'Clear',1:'Mainly clear',2:'Partly cloudy',3:'Overcast',45:'Fog',48:'Fog',51:'Light drizzle',
+ 53:'Drizzle',55:'Heavy drizzle',56:'Freezing drizzle',57:'Freezing drizzle',61:'Light rain',63:'Rain',
+ 65:'Heavy rain',66:'Freezing rain',67:'Freezing rain',71:'Light snow',73:'Snow',75:'Heavy snow',
+ 77:'Snow grains',80:'Light showers',81:'Showers',82:'Heavy showers',85:'Snow showers',86:'Snow showers',
+ 95:'Thunderstorm',96:'Thunderstorm',99:'Thunderstorm'};
+function tzOffsetHours(date,tz){
+  const p=new Intl.DateTimeFormat('en-US',{timeZone:tz,hour12:false,year:'numeric',month:'2-digit',
+    day:'2-digit',hour:'2-digit',minute:'2-digit'}).formatToParts(date).reduce((a,x)=>(a[x.type]=x.value,a),{});
+  return (Date.UTC(p.year,p.month-1,p.day,p.hour%24,p.minute)-date.getTime())/3600000;
+}
+function kickoffUTC(date,time){
+  if(!date||!time)return null;
+  const naive=Date.parse(`${date}T${time}:00Z`); if(isNaN(naive))return null;
+  return new Date(naive-tzOffsetHours(new Date(naive),'America/New_York')*3600000);
+}
+async function loadWeather(el,sched){
+  const st=STAD[sched.sid];
+  if(!st){el.innerHTML='<span class="dim">Venue not recognised, no forecast.</span>';return;}
+  const [lat,lon,roof]=st;
+  const ko=kickoffUTC(sched.date,sched.time);
+  if(!ko){el.innerHTML='<span class="dim">Kickoff time not set yet.</span>';return;}
+  const days=Math.ceil((ko-Date.now())/86400000);
+  if(days<0){el.innerHTML='<span class="dim">Game has started.</span>';return;}
+  if(roof==='dome'){el.innerHTML=`<strong>Indoors</strong> <span class="dim">\u00b7 ${sched.stadium} is a fixed roof, so no weather factor.</span>`;return;}
+  if(days>15){el.innerHTML=`<span class="dim">${sched.stadium} \u00b7 forecast available nearer the game (${days} days out).</span>`;return;}
+  const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`+
+    `&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m`+
+    `&timezone=UTC&forecast_days=16&wind_speed_unit=mph`;
+  try{
+    const r=await fetch(url); const j=await r.json(); const H=j.hourly;
+    const stamp=ko.toISOString().slice(0,13)+':00';
+    let i=H.time.indexOf(stamp);
+    if(i<0){ const t=ko.getTime(); i=H.time.reduce((best,s,n)=>Math.abs(Date.parse(s+'Z')-t)<Math.abs(Date.parse(H.time[best]+'Z')-t)?n:best,0); }
+    const c=H.temperature_2m[i], f=Math.round(c*9/5+32), wind=Math.round(H.wind_speed_10m[i]),
+      gust=Math.round(H.wind_gusts_10m[i]), pp=H.precipitation_probability[i], mm=H.precipitation[i],
+      desc=WXCODE[H.weather_code[i]]||'\u2014';
+    const windCls=wind>=15?'dn':''; const rainCls=pp>=50?'dn':'';
+    el.innerHTML=`<div class="wx">
+      <div><span class="wxv">${Math.round(c)}\u00b0C</span><span class="dim"> / ${f}\u00b0F</span><div class="dim">${desc}</div></div>
+      <div><span class="wxv ${windCls}">${wind} mph</span><div class="dim">gusts ${gust} mph</div></div>
+      <div><span class="wxv ${rainCls}">${pp}%</span><div class="dim">rain chance${mm>0?`, ${mm.toFixed(1)}mm`:''}</div></div>
+      <div class="dim wxnote">${sched.stadium}${sched.neutral?' (neutral site)':''}${roof==='retract'?' \u00b7 retractable roof, may be shut':''}<br>Kickoff ${ko.toUTCString().slice(0,22)} UTC</div>
+    </div>`;
+  }catch(e){ el.innerHTML='<span class="dim">Forecast unavailable right now.</span>'; }
+}
 
 // ---------- team view ----------
 const SEC={
@@ -416,6 +484,7 @@ function matchupView(){
     ${row('Stuff rate (own runs)','stuff_rate',F.pct,false)}${row('Stuff rate created','opp_stuff_rate',F.pct,true)}
     ${row('Yards per carry','ypc',F.one,true)}${row('Opp yards per carry','opp_ypc',F.one,false)}
     ${row('Yards before contact','ybc',F.one,true)}`)}
+  ${!played&&D.sched&&D.sched[`${w}|${a}@${h}`]?`<div class="card"><h4>Weather at kickoff</h4><div id="wx">Loading forecast\u2026</div></div>`:''}
   ${sec('Market','A move of more than 0.5 pts counts; 0.5 or less is a push.',`
     ${plain('Spread',mk(A),mk(H))}
     ${plain('ATS record',A.ats,H.ats)}
@@ -442,6 +511,8 @@ function render(){
   $('main').querySelectorAll('button.tl').forEach(b=>b.addEventListener('click',()=>{S.team=b.dataset.team;S.view='team';render();window.scrollTo(0,0);}));
   $('main').querySelectorAll('.wksel button[data-w]').forEach(b=>b.addEventListener('click',()=>{S.week=+b.dataset.w;render();}));
   $('main').querySelectorAll('.wksel button[data-ls]').forEach(b=>b.addEventListener('click',()=>{S.lsec=b.dataset.ls;S.sort=LSEC[S.lsec][2][1];S.dir=-1;render();}));
+  const wxEl=$('wx');
+  if(wxEl&&S.view==='match'){ const k=`${S.match.w}|${S.match.a}@${S.match.h}`; if(D.sched&&D.sched[k]) loadWeather(wxEl,D.sched[k]); }
   $('meta').textContent=`Data through week ${D.weeks[D.weeks.length-1]||'—'} · updated ${D.updated}`;
 }
 render();
