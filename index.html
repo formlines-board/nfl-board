@@ -115,6 +115,7 @@ button.game:hover{border-color:var(--ink-2)}
 .wxnote{margin-left:auto;text-align:right;max-width:44%}
 @media (max-width:700px){.wxnote{margin-left:0;text-align:left;max-width:100%}}
 .rk{display:inline-block;margin-left:5px;font-size:10.5px;color:var(--ink-3);vertical-align:super}
+.cmp td.r .rk{margin-left:5px}
 .lab2{color:var(--ink-2);font-weight:500}
 .cmphead{display:flex;justify-content:space-between;font-family:"IBM Plex Sans Condensed",sans-serif;font-weight:600;font-size:17px;margin:0 2px 10px}
 .cmphead .r{text-align:right}
@@ -185,7 +186,7 @@ function move(o,c,inv){
 function moveTot(o,c){ if(o==null||c==null)return `<span class="dim">${F.tot(c)}</span>`; const d=c-o; if(Math.abs(d)<0.01)return F.tot(c); return `<span class="mv brass" title="opened ${F.tot(o)}">${F.tot(c)}</span>`;}
 let RANKS=null;
 const RANKDIR={sr:1,opp_sr:-1,epa:1,opp_epa:-1,net:1,db_epa:1,opp_db_epa:-1,rush_epa:1,opp_rush_epa:-1,
-  expl:1,opp_expl:-1,npace:-1,pace:-1,proe:1,plays:1,
+  expl:1,opp_expl:-1,tempo:-1,ntempo:-1,proe:1,plays:1,
   sack_rate:-1,opp_sack_rate:1,hit_rate:-1,opp_hit_rate:1,stuff_rate:-1,opp_stuff_rate:1,
   ypc:1,opp_ypc:-1,ybc:1,press_allowed:-1,press_gen:1};
 function rankMap(){
@@ -229,7 +230,7 @@ function season(ab){
   const o={ab,gs,n:gs.length,rec:rec(ab),
     sr:s('sr'),opp_sr:s('opp_sr'),epa:s('epa'),opp_epa:s('opp_epa'),db_epa:s('db_epa'),opp_db_epa:s('opp_db_epa'),
     rush_epa:s('rush_epa'),opp_rush_epa:s('opp_rush_epa'),expl:s('expl'),opp_expl:s('opp_expl'),
-    npace:mean(gs.map(g=>g.npace)),pace:mean(gs.map(g=>g.pace)),proe:mean(gs.map(g=>g.proe)),
+    tempo:mean(gs.map(g=>S.filtered?g.tempo_f:g.tempo_r)),ntempo:mean(gs.map(g=>g.ntempo)),proe:mean(gs.map(g=>g.proe)),
     plays:mean(gs.map(g=>st(g).plays)),ppg:mean(gs.map(g=>g.pf)),papg:mean(gs.map(g=>g.pa)),
     sack_rate:s('sack_rate'),opp_sack_rate:s('opp_sack_rate'),hit_rate:s('hit_rate'),opp_hit_rate:s('opp_hit_rate'),
     stuff_rate:s('stuff_rate'),opp_stuff_rate:s('opp_stuff_rate'),ypc:s('ypc'),opp_ypc:s('opp_ypc'),
@@ -308,7 +309,7 @@ async function loadWeather(el,sched){
   if(roof==='dome'){el.innerHTML=`<strong>Indoors</strong> <span class="dim">\u00b7 ${sched.stadium} is a fixed roof, so no weather factor.</span>`;return;}
   if(days>15){el.innerHTML=`<span class="dim">${sched.stadium} \u00b7 forecast available nearer the game (${days} days out).</span>`;return;}
   const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`+
-    `&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m`+
+    `&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m`+
     `&timezone=UTC&forecast_days=16&wind_speed_unit=mph`;
   try{
     const r=await fetch(url); const j=await r.json(); const H=j.hourly;
@@ -334,8 +335,8 @@ const SEC={
     cols:[['SR','sr',F.pct],['Opp SR','opp_sr',F.pct],['EPA/play','epa','bar'],['Opp EPA','opp_epa','bar'],
           ['Dropback EPA','db_epa',F.epa],['Opp dropback','opp_db_epa',F.epa],['Rush EPA','rush_epa',F.epa],
           ['Explosive','expl',F.pct],['Opp explosive','opp_expl',F.pct]]},
-  totals:{title:'Totals',note:'Pace and pass tendency — what drives the number of plays and points. PROE is early downs in neutral situations only, so the garbage-time toggle does not affect it. Pace rank 1 = fastest; PROE rank 1 = most pass-heavy.',
-    cols:[['Neutral pace','npace',F.sec],['Pace','pace',F.sec],['PROE','proe',F.pctpt],['Plays','plays',F.int0]]},
+  totals:{title:'Totals',note:'Tempo and pass tendency \u2014 what drives the number of plays and points. Tempo is the real elapsed time between snaps, so it measures how quickly the offense gets to the line rather than how often the clock stopped. Neutral tempo and PROE cover neutral game states only and ignore the garbage-time toggle. Rank 1 = fastest tempo, most pass-heavy PROE.',
+    cols:[['Tempo','tempo',F.sec],['Neutral tempo','ntempo',F.sec],['PROE','proe',F.pctpt],['Plays','plays',F.int0]]},
   trenches:{title:'Trenches',note:'Pass protection, pass rush and the run game at the line. Rank 1 is always the better end. Pressure and blitz counts come from PFR and appear a few days after each game.',
     cols:[['Sack rate','sack_rate',F.pct],['Opp sack rate','opp_sack_rate',F.pct],['QB hit rate','hit_rate',F.pct],
           ['Opp hit rate','opp_hit_rate',F.pct],['Pressures allowed','press_allowed',F.int0],['Pressures made','press_gen',F.int0],
@@ -346,7 +347,7 @@ const SEC={
 function cellVal(g,key){
   const s=st(g);
   if(key==='pf')return g.pf; if(key==='pa')return g.pa;
-  if(key==='npace')return g.npace; if(key==='pace')return g.pace; if(key==='proe')return g.proe;
+  if(key==='tempo')return S.filtered?g.tempo_f:g.tempo_r; if(key==='ntempo')return g.ntempo; if(key==='proe')return g.proe;
   if(['press_allowed','press_gen','blitz_faced','blitz_sent','ybc','opp_ybc'].includes(key)){
     const m={press_allowed:'pressures_allowed',press_gen:'pressures_generated',blitz_faced:'blitzes_faced',blitz_sent:'blitzes_sent',ybc:'ybc',opp_ybc:'opp_ybc'};
     return g.pfr?g.pfr[m[key]]:null; }
@@ -366,15 +367,15 @@ function sectionTable(gs,sec,ab){
 function marketTable(gs,ab){
   const A=season(ab); const w1=windowMarket(gs,1),w3=windowMarket(gs,3);
   const rows=gs.map(g=>`<tr><td class="l">${g.week}</td><td class="l">${g.home?'v':'@'} ${g.opp}</td>
-    <td class="dim">${F.line(g.open_line)}</td><td>${F.line(g.close_line)}</td><td>${g.line_move==null?'—':(g.line_move>0?'+':'')+g.line_move}</td><td>${mtag(g.market)}</td>
-    <td class="l ${g.ats==='win'?'win':g.ats==='loss'?'loss':''}">${g.ats||'—'}</td>
-    <td class="dim">${F.tot(g.open_total)}</td><td>${F.tot(g.close_total)}</td><td>${g.total_move==null?'—':(g.total_move>0?'+':'')+g.total_move}</td><td>${ttag(g.total_market)}</td>
-    <td class="l">${g.ou||'—'}</td></tr>`).join('');
+    <td class="dim">${F.line(g.open_line)}</td><td>${F.line(g.close_line)}</td><td>${g.line_move==null?'\u2014':(g.line_move>0?'+':'')+g.line_move}</td><td>${mtag(g.market)}</td>
+    <td class="l ${g.ats==='win'?'win':g.ats==='loss'?'loss':''}">${g.ats||'\u2014'}</td>
+    <td class="dim">${F.tot(g.open_total)}</td><td>${F.tot(g.close_total)}</td><td>${g.total_move==null?'\u2014':(g.total_move>0?'+':'')+g.total_move}</td><td>${ttag(g.total_market)}</td>
+    <td class="l">${g.ou||'\u2014'}</td></tr>`).join('');
   const up=findUpcoming(ab).map(({wk,a,h,v})=>{const home=h===ab,sg=home?-1:1,ol=sg*v[0],cl=sg*v[1],d=cl-ol;
     const mk=Math.abs(d)<=0.5?'push':(d<0?'for':'against'); const td=v[3]-v[2]; const tm=Math.abs(td)<=0.5?'push':(td>0?'over':'under');
     return `<tr class="up"><td class="l">${wk}</td><td class="l">${home?'v':'@'} ${home?a:h}</td>
       <td class="dim">${F.line(ol)}</td><td>${F.line(cl)}</td><td>${(d>0?'+':'')+(Math.round(d*10)/10)}</td><td>${mtag(mk)}</td><td class="l dim">upcoming</td>
-      <td class="dim">${F.tot(v[2])}</td><td>${F.tot(v[3])}</td><td>${(td>0?'+':'')+(Math.round(td*10)/10)}</td><td>${ttag(tm)}</td><td class="l dim">—</td></tr>`;}).join('');
+      <td class="dim">${F.tot(v[2])}</td><td>${F.tot(v[3])}</td><td>${(td>0?'+':'')+(Math.round(td*10)/10)}</td><td>${ttag(tm)}</td><td class="l dim">\u2014</td></tr>`;}).join('');
   const sum=(lbl,m)=>`<tr><td class="l lab2">${lbl}</td><td>${m.for}</td><td>${m.against}</td><td>${m.push}</td><td>${m.ats_w}-${m.ats_l}</td>
       <td>${m.over}</td><td>${m.under}</td><td>${m.tpush}</td><td>${m.ou_o}-${m.ou_u}</td></tr>`;
   return `<table><thead><tr><th class="l">Wk</th><th class="l">Opp</th><th>Open</th><th>Close</th><th>Move</th><th>Market</th><th class="l">ATS</th>
@@ -402,26 +403,26 @@ function teamView(){
 // ---------- league table ----------
 const LSEC={
   sides:[['Team','name'],['Rec','rec'],['SR','sr'],['Opp SR','opp_sr'],['EPA/play','epa'],['Opp EPA','opp_epa'],['Net EPA','net'],['Dropback','db_epa'],['Opp dropback','opp_db_epa'],['Rush EPA','rush_epa'],['Expl','expl'],['Opp expl','opp_expl']],
-  totals:[['Team','name'],['Rec','rec'],['Neutral pace','npace'],['Pace','pace'],['PROE','proe'],['Plays','plays'],['O/U','ou']],
+  totals:[['Team','name'],['Rec','rec'],['Tempo','tempo'],['Neutral tempo','ntempo'],['PROE','proe'],['Plays','plays'],['O/U','ou']],
   trenches:[['Team','name'],['Rec','rec'],['Sack rate','sack_rate'],['Opp sack rate','opp_sack_rate'],['Hit rate','hit_rate'],['Opp hit rate','opp_hit_rate'],['Press allowed','press_allowed'],['Press made','press_gen'],['Stuff rate','stuff_rate'],['Opp stuff','opp_stuff_rate'],['YPC','ypc'],['Opp YPC','opp_ypc'],['YBC','ybc']],
   market:[['Team','name'],['Rec','rec'],['Backed','mkt_for'],['Opposed','mkt_against'],['Flat','mkt_push'],['ATS','atsv'],['Over bet','tot_over'],['Under bet','tot_under'],['O/U','ou']]
 };
 const FMT={sr:F.pct,opp_sr:F.pct,expl:F.pct,opp_expl:F.pct,sack_rate:F.pct,opp_sack_rate:F.pct,hit_rate:F.pct,opp_hit_rate:F.pct,stuff_rate:F.pct,opp_stuff_rate:F.pct,
-  epa:'bar',opp_epa:'bar',net:'bar',db_epa:F.epa,opp_db_epa:F.epa,rush_epa:F.epa,npace:F.sec,pace:F.sec,proe:F.pctpt,plays:F.int0,ppg:F.one,papg:F.one,
+  epa:'bar',opp_epa:'bar',net:'bar',db_epa:F.epa,opp_db_epa:F.epa,rush_epa:F.epa,tempo:F.sec,ntempo:F.sec,proe:F.pctpt,plays:F.int0,ppg:F.one,papg:F.one,
   ypc:F.one,opp_ypc:F.one,ybc:F.one,press_allowed:F.int0,press_gen:F.int0,mkt_for:F.int0,mkt_against:F.int0,mkt_push:F.int0,tot_over:F.int0,tot_under:F.int0};
 function leagueView(){
   const sec=S.lsec; const cols=LSEC[sec];
   const rows=Object.keys(D.teams).map(ab=>{const s=season(ab);s.name=D.teams[ab].name;return s;});
   const k=S.sort in Object.fromEntries(cols)||cols.some(c=>c[1]===S.sort)?S.sort:cols[2][1];
   rows.sort((a,b)=>{const x=a[k],y=b[k];if(x==null)return 1;if(y==null)return -1;return typeof x==='string'?x.localeCompare(y)*S.dir:(x-y)*S.dir;});
-  return `<div class="head"><h2>League table</h2><span class="proj">Season averages, weeks ${D.weeks[0]}–${D.weeks[D.weeks.length-1]}. Click a heading to sort.</span></div>
+  return `<div class="head"><h2>League table</h2><span class="proj">Season averages, weeks ${D.weeks[0]}\u2013${D.weeks[D.weeks.length-1]}. Click a heading to sort.</span></div>
   <div class="wksel">${Object.keys(LSEC).map(x=>`<button data-ls="${x}" class="${x===sec?'on':''}">${SEC[x].title}</button>`).join('')}</div>
   <div class="card">${controls(SEC[sec].note)}
   <table><thead><tr>${cols.map(c=>`<th class="sort ${['name','rec','ats','ou'].includes(c[1])?'l':''} ${k===c[1]?'on':''}" data-k="${c[1]}">${c[0]}</th>`).join('')}</tr></thead><tbody>
   ${rows.map(r=>`<tr><td class="l"><button data-team="${r.ab}" class="tl">${r.name}</button></td><td class="l">${r.rec}</td>`+
     cols.slice(2).map(c=>{const f=c[1]==='atsv'?null:FMT[c[1]]; const v=r[c[1]];
       if(c[1]==='atsv')return `<td class="l">${r.ats}</td>`; if(c[1]==='ou')return `<td class="l">${r.ou}</td>`;
-      return `<td>${f==='bar'?bar(v,c[1]==='net'?.6:.4):(f?f(v):(v==null?'—':v))}</td>`;}).join('')+`</tr>`).join('')}
+      return `<td>${f==='bar'?bar(v,c[1]==='net'?.6:.4):(f?f(v):(v==null?'\u2014':v))}</td>`;}).join('')+`</tr>`).join('')}
   </tbody></table></div>`;
 }
 
@@ -432,12 +433,12 @@ function weekView(){
   const played=D.games.filter(g=>g.week===S.week&&!g.home).sort((a,b)=>a.date.localeCompare(b.date));
   const up=D.upcoming&&D.upcoming[String(S.week)]||{}; const playedKeys=new Set(played.map(a=>`${a.team}@${a.opp}`));
   let cards=played.map(a=>`<button class="game" data-a="${a.team}" data-h="${a.opp}" data-w="${a.week}">
-      <div class="teams"><span>${D.teams[a.team].name}</span><span class="score">${a.pf}–${a.pa}</span><span>${D.teams[a.opp].name}</span></div>
-      <div class="lines"><span>${a.team} ${F.line(a.open_line)} → ${move(a.open_line,a.close_line,true)}</span><span>Total ${F.tot(a.open_total)} → ${moveTot(a.open_total,a.close_total)}</span><span class="dim">${a.date}</span></div></button>`);
+      <div class="teams"><span>${D.teams[a.team].name}</span><span class="score">${a.pf}\u2013${a.pa}</span><span>${D.teams[a.opp].name}</span></div>
+      <div class="lines"><span>${a.team} ${F.line(a.open_line)} \u2192 ${move(a.open_line,a.close_line,true)}</span><span>Total ${F.tot(a.open_total)} \u2192 ${moveTot(a.open_total,a.close_total)}</span><span class="dim">${a.date}</span></div></button>`);
   for(const [k,v] of Object.entries(up)){ if(playedKeys.has(k))continue; const [a,h]=k.split('@');
     cards.push(`<button class="game" data-a="${a}" data-h="${h}" data-w="${S.week}">
       <div class="teams"><span>${D.teams[a].name}</span><span class="score dim">at</span><span>${D.teams[h].name}</span></div>
-      <div class="lines"><span>${a} ${F.line(v[0])} → ${move(v[0],v[1],true)}</span><span>Total ${F.tot(v[2])} → ${moveTot(v[2],v[3])}</span><span class="dim">upcoming</span></div></button>`);}
+      <div class="lines"><span>${a} ${F.line(v[0])} \u2192 ${move(v[0],v[1],true)}</span><span>Total ${F.tot(v[2])} \u2192 ${moveTot(v[2],v[3])}</span><span class="dim">upcoming</span></div></button>`);}
   return `<div class="head"><h2>Week ${S.week}</h2><span class="proj">Click a game to compare the two teams.</span></div>
     <div class="wksel">${wks.map(w=>`<button data-w="${w}" class="${w===S.week?'on':''}">Week ${w}</button>`).join('')}</div>
     <div class="games">${cards.join('')||'<p class="empty">No games in the data for this week yet.</p>'}</div>`;
@@ -456,15 +457,15 @@ function matchupView(){
   const cross=(label,ok,dk)=>`<tr><td>${bar(A[ok],.4)} <span class="dim">v</span> ${bar(H[dk],.4)}</td><td class="l lab">${label}</td><td class="r">${bar(H[ok],.4)} <span class="dim">v</span> ${bar(A[dk],.4)}</td></tr>`;
   const sec=(title,note,body)=>`<div class="card"><h4>${title}</h4>${note?`<p class="dim secnote">${note}</p>`:''}<table class="cmp"><tbody>${body}</tbody></table></div>`;
   const mk=(T)=>{const w1=windowMarket(T.gs,1),w3=windowMarket(T.gs,3),sn=windowMarket(T.gs,99);
-    return `${w1.for?'backed':w1.against?'opposed':'flat'} last week · ${w3.for}-${w3.against} last 3 · ${sn.for}-${sn.against} season`;};
+    return `${w1.for?'backed':w1.against?'opposed':'flat'} last week \u00b7 ${w3.for}-${w3.against} last 3 \u00b7 ${sn.for}-${sn.against} season`;};
   const tk=(T)=>{const w3=windowMarket(T.gs,3),sn=windowMarket(T.gs,99);
-    return `${w3.over}-${w3.under} last 3 · ${sn.over}-${sn.under} season · landed ${sn.ou_o}-${sn.ou_u}`;};
+    return `${w3.over}-${w3.under} last 3 \u00b7 ${sn.over}-${sn.under} season \u00b7 landed ${sn.ou_o}-${sn.ou_u}`;};
   const log=(T)=>`<table class="log"><thead><tr><th class="l">Wk</th><th class="l">Opp</th><th class="l">Result</th><th>EPA</th><th>Opp EPA</th><th>Dropback</th><th>Close</th><th>Total</th></tr></thead><tbody>
     ${T.gs.slice().sort((x,y)=>x.week-y.week).map(g=>{const s=st(g);const res=g.pf>g.pa?'W':g.pf<g.pa?'L':'T';return `<tr><td class="l">${g.week}</td><td class="l">${g.home?'v':'@'} ${g.opp}</td><td class="l ${res==='W'?'win':res==='L'?'loss':''}">${res} ${g.pf}-${g.pa}</td><td>${F.epa(s.epa)}</td><td>${F.epa(s.opp_epa)}</td><td>${F.epa(s.db_epa)}</td><td>${F.line(g.close_line)}</td><td>${F.tot(g.close_total)}</td></tr>`;}).join('')||'<tr><td colspan="8" class="l dim">No games yet.</td></tr>'}</tbody></table>`;
-  return `<div class="head"><h2>${ta.name} at ${th.name}</h2><span class="proj">Week ${w}${played?` · final ${played.pf}–${played.pa}`:' · upcoming'}</span></div>
-  <div class="lines big"><span>${a} ${F.line(ol)} → ${move(ol,cl,true)}</span><span>Total ${F.tot(ot)} → ${moveTot(ot,ct)}</span></div>
+  return `<div class="head"><h2>${ta.name} at ${th.name}</h2><span class="proj">Week ${w}${played?` \u00b7 final ${played.pf}\u2013${played.pa}`:' \u00b7 upcoming'}</span></div>
+  <div class="lines big"><span>${a} ${F.line(ol)} \u2192 ${move(ol,cl,true)}</span><span>Total ${F.tot(ot)} \u2192 ${moveTot(ot,ct)}</span></div>
   ${controls('Season averages to date. Green cell = the better number; small figures are league rank out of 32.')}
-  <div class="cmphead"><div>${ta.name}<div class="dim">${A.rec} · ATS ${A.ats} · O/U ${A.ou}</div></div><div class="r">${th.name}<div class="dim">${H.rec} · ATS ${H.ats} · O/U ${H.ou}</div></div></div>
+  <div class="cmphead"><div>${ta.name}<div class="dim">${A.rec} \u00b7 ATS ${A.ats} \u00b7 O/U ${A.ou}</div></div><div class="r">${th.name}<div class="dim">${H.rec} \u00b7 ATS ${H.ats} \u00b7 O/U ${H.ou}</div></div></div>
   ${sec('Sides','',`
     ${row('Success rate','sr',F.pct,true)}${row('Opp success rate','opp_sr',F.pct,false)}
     ${row('EPA per play','epa',F.epa,true,true)}${row('Opp EPA per play','opp_epa',F.epa,false,true)}
@@ -474,7 +475,8 @@ function matchupView(){
     ${cross('Offense v opp pass defense','db_epa','opp_db_epa')}
     ${cross('Offense v opp defense (all plays)','epa','opp_epa')}`)}
   ${sec('Totals','',`
-    ${row('Neutral pace','npace',F.sec,false,false,'(s/snap, lower = faster)')}
+    ${row('Tempo','tempo',F.sec,false,false,'(seconds between snaps, lower = faster)')}
+    ${row('Neutral tempo','ntempo',F.sec,false,false,'(neutral game state only)')}
     ${row('PROE','proe',F.pctpt,true,false,'(early downs, neutral only)')}
     ${row('Plays per game','plays',F.int0,true)}`)}
   ${sec('Trenches','Pressure and blitz counts come from PFR and appear a few days after each game.',`
@@ -507,13 +509,13 @@ function render(){
   $('main').querySelectorAll('[data-a][data-h]').forEach(b=>b.addEventListener('click',()=>{S.match={a:b.dataset.a,h:b.dataset.h,w:+b.dataset.w};S.view='match';render();window.scrollTo(0,0);}));
   const f=$('filt'); if(f)f.addEventListener('change',()=>{S.filtered=f.checked;render();});
   const n=$('noto'); if(n)n.addEventListener('change',()=>{S.noTO=n.checked;render();});
-  $('main').querySelectorAll('th.sort').forEach(th=>th.addEventListener('click',()=>{const k=th.dataset.k;if(S.sort===k)S.dir*=-1;else{S.sort=k;S.dir=['name','rec','ou','npace','opp_sr','opp_epa','opp_db_epa','opp_expl'].includes(k)?1:-1;}render();}));
+  $('main').querySelectorAll('th.sort').forEach(th=>th.addEventListener('click',()=>{const k=th.dataset.k;if(S.sort===k)S.dir*=-1;else{S.sort=k;S.dir=['name','rec','ou','tempo','ntempo','opp_sr','opp_epa','opp_db_epa','opp_expl'].includes(k)?1:-1;}render();}));
   $('main').querySelectorAll('button.tl').forEach(b=>b.addEventListener('click',()=>{S.team=b.dataset.team;S.view='team';render();window.scrollTo(0,0);}));
   $('main').querySelectorAll('.wksel button[data-w]').forEach(b=>b.addEventListener('click',()=>{S.week=+b.dataset.w;render();}));
   $('main').querySelectorAll('.wksel button[data-ls]').forEach(b=>b.addEventListener('click',()=>{S.lsec=b.dataset.ls;S.sort=LSEC[S.lsec][2][1];S.dir=-1;render();}));
   const wxEl=$('wx');
   if(wxEl&&S.view==='match'){ const k=`${S.match.w}|${S.match.a}@${S.match.h}`; if(D.sched&&D.sched[k]) loadWeather(wxEl,D.sched[k]); }
-  $('meta').textContent=`Data through week ${D.weeks[D.weeks.length-1]||'—'} · updated ${D.updated}`;
+  $('meta').textContent=`Data through week ${D.weeks[D.weeks.length-1]||'\u2014'} \u00b7 updated ${D.updated}`;
 }
 render();
 })();
