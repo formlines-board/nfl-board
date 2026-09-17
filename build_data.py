@@ -7,7 +7,12 @@ Stat definitions
 - Turnovers (interceptions, lost fumbles) are removed from EPA by default; 'f_to'/'r_to' keep them in. Success rate always includes them.
 - Dropback EPA: plays with qb_dropback = 1 (passes, sacks, scrambles). Rush EPA: designed runs only.
 - Explosive rate: passes of 15+ yards or runs of 10+ yards, as a share of plays.
-- Pace: seconds per offensive snap = drive possession time / drive plays.
+- Tempo: real elapsed seconds between consecutive snaps on the same drive, taken from the wall-clock
+  timestamp of each snap. Gaps over 70s are dropped (TV timeouts, reviews, injuries, quarter breaks).
+  This measures how quickly the offense gets to the line; unlike possession-time / plays it is not
+  distorted by incompletions stopping the game clock. tempo_f excludes garbage time, tempo_r is all
+  snaps, ntempo counts only snaps taken at 35-65% win probability.
+  Note: the wall-clock field covers roughly 75-90% of snaps per game.
 - Pass rate over expectation (proe): mean of nflverse pass_oe on EARLY DOWNS (1st and 2nd) in NEUTRAL
   situations only - win probability 20-80%, excluding the last two minutes of each half. Independent of the
   garbage-time toggle, since it measures play-calling intent rather than efficiency.
@@ -54,6 +59,7 @@ def pfr_stats(gid,team,opp):
     return out
 bq=json.load(open('betql_lines.json')) if os.path.exists('betql_lines.json') else {}
 base=d[((d['pass']==1)|(d['rush']==1))&d.epa.notna()&d.success.notna()&(d.qb_kneel!=1)&(d.qb_spike!=1)].copy()
+base['tod']=pd.to_datetime(base.time_of_day,errors='coerce',utc=True)
 base['to']=((base.interception==1)|(base.fumble_lost==1)).astype(int)
 base['explosive']=(((base['pass']==1)&(base.yards_gained>=15))|((base.rush==1)&(base.qb_dropback!=1)&(base.yards_gained>=10))).astype(int)
 def stats(off,de,no_to=True):
@@ -74,16 +80,21 @@ def neutral_proe(gp,team):
     t=gp[(gp.posteam==team)&(gp.down.isin([1,2]))&(gp.wp>=0.20)&(gp.wp<=0.80)&(gp.half_seconds_remaining>120)]
     t=t[t.pass_oe.notna()]
     return float(t.pass_oe.mean()) if len(t) else None
-def neutral_pace(gp,team):
-    t=gp[(gp.posteam==team)].sort_values('play_id')
-    secs=[]
-    for drive,dp in t.groupby('drive'):
-        dp=dp.sort_values('play_id')
-        for a,b in zip(dp.itertuples(),dp.iloc[1:].itertuples()):
-            if pd.notna(a.wp) and 0.35<=a.wp<=0.65:
-                gap=a.game_seconds_remaining-b.game_seconds_remaining
-                if 0<gap<=60: secs.append(gap)
-    return float(np.mean(secs)) if secs else None
+MAXGAP=70   # seconds; longer gaps are TV timeouts, reviews, injuries, end of quarter
+def tempo(gp,team,lo=None,hi=None):
+    """True snap tempo: real elapsed seconds between consecutive snaps on the same drive,
+    from the wall-clock timestamp of each snap. Independent of whether the game clock was
+    running, so it measures how quickly the offense gets to the line rather than game script.
+    lo/hi optionally restrict to snaps taken inside a win-probability band."""
+    t=gp[(gp.posteam==team)&gp.tod.notna()]
+    gaps=[]
+    for _,dp in t.groupby('drive'):
+        rows=list(dp.sort_values('play_id').itertuples())
+        for a,b in zip(rows,rows[1:]):
+            if lo is not None and not (pd.notna(a.wp) and lo<=a.wp<=hi): continue
+            g=(b.tod-a.tod).total_seconds()
+            if 0<g<=MAXGAP: gaps.append(g)
+    return float(np.mean(gaps)) if gaps else None
 rows=[]
 for gid,gp in base.groupby('game_id'):
     home,away=gp.home_team.iloc[0],gp.away_team.iloc[0]
@@ -93,10 +104,9 @@ for gid,gp in base.groupby('game_id'):
         fo,fd=filt[filt.posteam==team],filt[filt.defteam==team]; ro,rd=gp[gp.posteam==team],gp[gp.defteam==team]
         rec['f']=stats(fo,fd,True); rec['r']=stats(ro,rd,True)      # turnovers removed from EPA
         rec['f_to']=stats(fo,fd,False); rec['r_to']=stats(ro,rd,False) # turnovers included
-        dr=d[(d.game_id==gid)&(d.posteam==team)].drop_duplicates('drive')[['drive_time_of_possession','drive_play_count']].dropna()
-        secs=sum(int(t.split(':')[0])*60+int(t.split(':')[1]) for t in dr.drive_time_of_possession)
-        rec['pace']=secs/dr.drive_play_count.sum() if dr.drive_play_count.sum() else None
-        rec['npace']=neutral_pace(gp,team)
+        rec['tempo_f']=tempo(filt,team)          # garbage time excluded
+        rec['tempo_r']=tempo(gp,team)             # all snaps
+        rec['ntempo']=tempo(gp,team,0.35,0.65)    # neutral situations only
         rec['proe']=neutral_proe(gp,team)
         rec['pfr']=pfr_stats(gid,team,away if team==home else home)
         rows.append(rec)
@@ -109,7 +119,7 @@ for x in r.itertuples():
     else: ol,cl,ot,ct=None,(-x.spread_line if home else x.spread_line),None,x.total_line
     pf,pa=(x.home_score,x.away_score) if home else (x.away_score,x.home_score)
     games.append(dict(team=x.team,week=int(x.week),opp=opp,home=bool(home),pf=int(pf),pa=int(pa),date=x.gameday,
-        f=x.f,r=x.r,f_to=x.f_to,r_to=x.r_to,pfr=x.pfr,pace=x.pace,npace=x.npace,proe=x.proe,open_line=ol,close_line=cl,open_total=ot,close_total=ct))
+        f=x.f,r=x.r,f_to=x.f_to,r_to=x.r_to,pfr=x.pfr,tempo_f=x.tempo_f,tempo_r=x.tempo_r,ntempo=x.ntempo,proe=x.proe,open_line=ol,close_line=cl,open_total=ot,close_total=ct))
 # ---- document sections ----
 try:
     import markdown; md=lambda t: markdown.markdown(t,extensions=['tables'])
